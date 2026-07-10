@@ -391,6 +391,7 @@ const SUPABASE_URL = 'https://xacfsgmnkvelueqaldqw.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_fZswotmulnP8CfRsAkf6Sw_9yI_iTlP';
 
 const HANDLING_MARKUP = 1.05; // 5% platform contribution built into transport & share prices
+const APP_URL = location.origin + location.pathname; // clean base URL - never contains tokens or params
 
 // ═══════════════ SETUP ═══════════════
 const LIVE = SUPABASE_URL.startsWith('https://');
@@ -546,7 +547,7 @@ function requireAuth(action) {
 async function sendMagicLink() {
   const email = document.getElementById('auth-email').value.trim();
   if (!email) { showToast('Enter your email'); return; }
-  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('?')[0] } });
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: APP_URL } });
   if (error) { showToast(error.message); return; }
   document.getElementById('auth-sent-to').textContent = email;
   document.getElementById('auth-step-email').style.display = 'none';
@@ -596,7 +597,7 @@ async function renderHome() {
   const label = document.getElementById('home-list-label');
   if (LIVE && !currentUser) {
     label.textContent = 'Welcome';
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🧺</div><h3>Organise your community's buys</h3><p>Sign in to create food runs and share buys.<br><br>Got a link from your group admin? Just tap it - no account needed.</p><div style="height:16px"></div><button class="btn btn-primary" onclick="showScreen('screen-auth')" style="max-width:240px;margin:0 auto">Admin Sign In</button></div>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🧺</div><h3>Organise your community's buys</h3><p>Sign in to create food runs and share buys.<br><br>Looking to order or claim a share? Use the link your group admin shared on WhatsApp - no account needed. If it brought you here instead, ask them to reshare it.</p><div style="height:16px"></div><button class="btn btn-primary" onclick="showScreen('screen-auth')" style="max-width:240px;margin:0 auto">Admin Sign In</button></div>`;
     return;
   }
   label.textContent = 'Your Buys';
@@ -669,7 +670,7 @@ function renderBasketDetail(f) {
   const paid = f.orders.filter(o => o.paid).length;
   const tShare = transportShareOf(b, n);
   const foodTotal = f.orders.reduce((s,o) => s + orderFoodTotal(f, o), 0);
-  const shareLink = `${location.href.split('?')[0]}?buy=${b.id}`;
+  const shareLink = `${APP_URL}?buy=${b.id}`;
 
   // Threshold summary across all orders
   const totals = {};
@@ -746,7 +747,7 @@ function renderShareDetail(f) {
   const pendingApproval = f.claims.filter(c => !c.approved).length;
   const claimedSlots = new Set(f.claims.map(c => c.slot));
   const full = locked === b.num_shares;
-  const shareLink = `${location.href.split('?')[0]}?buy=${b.id}`;
+  const shareLink = `${APP_URL}?buy=${b.id}`;
 
   const slotsHTML = Array.from({length: b.num_shares}, (_, i) => {
     const slot = i + 1;
@@ -1116,7 +1117,7 @@ async function createShare() {
 // ═══════════════ WHATSAPP ═══════════════
 function shareBasketWA() {
   const f = state.currentBuy, b = f.buy;
-  const link = `${location.href.split('?')[0]}?buy=${b.id}`;
+  const link = `${APP_URL}?buy=${b.id}`;
   const preview = f.items.slice(0,5).map(i=>`• ${i.name}: ${b.currency}${i.price}`).join('\n');
   const msg = `🧺 *${b.title}*\n\nOrder deadline: *${fmtDate(b.deadline)}*\n${b.pickup ? `Pickup: *${b.pickup}*\n` : ''}\n${preview}${f.items.length>5?`\n+ ${f.items.length-5} more items`:''}\n\nTap to order 👇\n${link}\n\n_Organised with MyShare_`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
@@ -1126,7 +1127,7 @@ function shareShareWA() {
   const f = state.currentBuy, b = f.buy;
   const per = sharePriceOf(b);
   const free = b.num_shares - f.claims.filter(c=>c.paid).length;
-  const link = `${location.href.split('?')[0]}?buy=${b.id}`;
+  const link = `${APP_URL}?buy=${b.id}`;
   const msg = `🐄 *${b.title} - Share Buy*\n\n${b.currency}${per.toLocaleString()} per share · *${free} left*\nPay by: ${fmtDate(b.deadline)}\nCollection: ${b.collection || 'TBC'}\n\nClaim your share 👇\n${link}\n\n_Organised with MyShare_`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
@@ -1189,7 +1190,11 @@ function renderRates() {
 
 // ═══════════════ JOIN LINK + POLLING ═══════════════
 async function checkJoinLink() {
-  const buyId = new URLSearchParams(location.search).get('buy');
+  let buyId = new URLSearchParams(location.search).get('buy');
+  if (!buyId && location.hash.includes('buy=')) {
+    const m = location.hash.match(/buy=([a-zA-Z0-9_-]+)/);
+    if (m) buyId = m[1];
+  }
   if (buyId) await openBuy(buyId);
 }
 
