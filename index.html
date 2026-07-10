@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyShare – Buy Together. Save Together.</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
+  :root {
+    --green:#1B5E3B; --green-dark:#143D28; --gold:#D4A843; --cream:#FAF7F2;
+    --charcoal:#1A1A1A; --mid:#5C5C5C; --soft:#E8E2D9; --success:#2D7A4F;
+    --danger:#C0392B; --orange:#E8621A; --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Space Grotesk',sans-serif;background:var(--cream);color:var(--charcoal);min-height:100vh;font-size:15px}
+  .screen{display:none;min-height:100vh;flex-direction:column}
+  .screen.active{display:flex}
+  .header{background:var(--green);padding:16px 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .logo{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--white);letter-spacing:-0.5px;cursor:pointer}
+  .logo span{color:var(--gold)}
+  .back-btn{background:none;border:none;color:var(--white);font-size:22px;cursor:pointer;padding:4px 8px 4px 0;font-family:'Space Grotesk',sans-serif}
+  .header-action{background:none;border:none;color:var(--gold);font-size:13px;cursor:pointer;font-weight:700}
+  .rate-banner{background:var(--green-dark);padding:8px 20px;display:flex;align-items:center;gap:8px;cursor:pointer}
+  .rate-banner-text{font-size:11.5px;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+  .rate-banner-text strong{color:var(--gold)}
+  .rate-banner-cta{font-size:11px;color:var(--gold);font-weight:700;white-space:nowrap}
+  .demo-banner{background:#FEF3DC;color:#8B6200;font-size:12px;font-weight:600;padding:9px 20px;text-align:center}
+  .hero{background:var(--green);padding:0 20px 26px;color:white}
+  .hero h1{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;line-height:1.12;margin-bottom:8px}
+  .hero h1 em{color:var(--gold);font-style:normal}
+  .hero p{font-size:13px;color:rgba(255,255,255,0.75);line-height:1.5}
+  .hero h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px}
+  .body-pad{padding:20px}
+  .pb-safe{padding-bottom:110px}
+  .section-label{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mid);margin-bottom:12px}
+  .type-card{background:var(--white);border:2px solid var(--soft);border-radius:16px;padding:20px;cursor:pointer;display:flex;align-items:center;text-align:left;gap:16px;margin-bottom:12px;transition:transform .1s}
+  .type-card:active{transform:scale(.97)}
+  .type-icon{font-size:32px}
+  .type-name{font-weight:700;font-size:14px;margin-bottom:4px}
+  .type-desc{font-size:11.5px;color:var(--mid);line-height:1.4}
+  .buy-card{background:var(--white);border-radius:14px;padding:16px 18px;margin-bottom:12px;border:1px solid var(--soft);cursor:pointer;position:relative;overflow:hidden;transition:transform .15s}
+  .buy-card:active{transform:scale(.98)}
+  .buy-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px}
+  .buy-card.type-basket::before{background:var(--orange)}
+  .buy-card.type-share::before{background:var(--gold)}
+  .buy-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:10px}
+  .buy-name{font-weight:700;font-size:16px}
+  .buy-type-tag{font-size:10px;color:var(--mid);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:2px}
+  .buy-badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+  .badge-open{background:#E8F5EE;color:var(--success)}
+  .badge-full{background:#FEF3DC;color:#8B6200}
+  .badge-closed{background:#FDEDEC;color:var(--danger)}
+  .buy-meta{font-size:13px;color:var(--mid);margin-bottom:4px}
+  .buy-meta strong{color:var(--charcoal)}
+  .progress-bar{background:var(--soft);border-radius:4px;height:5px;overflow:hidden;margin-top:10px}
+  .progress-fill{height:100%;border-radius:4px;transition:width .4s}
+  .fill-basket{background:var(--orange)}
+  .fill-share{background:var(--gold)}
+  .fill-threshold{background:var(--green)}
+  .progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--mid);margin-top:5px}
+  .slots-row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .slot{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .slot.taken{background:var(--green);color:white}
+  .slot.free{background:var(--white);border:1.5px dashed var(--soft);color:var(--mid)}
+  .slot.pending{background:var(--gold);color:var(--charcoal)}
+  .btn{display:block;width:100%;padding:15px;border:none;border-radius:12px;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;cursor:pointer;text-align:center;transition:opacity .15s,transform .1s}
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:var(--green);color:var(--white)}
+  .btn-gold{background:var(--gold);color:var(--charcoal)}
+  .btn-orange{background:var(--orange);color:var(--white)}
+  .btn-outline{background:transparent;border:2px solid var(--green);color:var(--green)}
+  .btn-sm{padding:8px 14px;font-size:12px;border-radius:8px;width:auto;display:inline-block}
+  .fab{position:fixed;bottom:24px;right:20px;background:var(--gold);color:var(--charcoal);border:none;border-radius:50px;padding:15px 24px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 20px rgba(212,168,67,.45);display:flex;align-items:center;gap:8px;z-index:50}
+  .form-group{margin-bottom:18px}
+  .form-label{display:block;font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--mid);margin-bottom:7px}
+  .form-input,.form-select,.form-textarea{display:block;width:100%;padding:13px 16px;border:1.5px solid var(--soft);border-radius:10px;font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--charcoal);background:var(--white);transition:border-color .15s;-webkit-appearance:none}
+  .form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--green)}
+  .form-textarea{resize:vertical;min-height:70px}
+  .form-hint{font-size:12px;color:var(--mid);margin-top:5px;line-height:1.4}
+  .item-row{display:grid;grid-template-columns:1fr 68px 54px 70px 26px;gap:6px;align-items:center;margin-bottom:8px}
+  .item-row input{padding:10px 10px;border:1.5px solid var(--soft);border-radius:8px;font-family:'Space Grotesk',sans-serif;font-size:12.5px;background:var(--white);width:100%}
+  .item-row input:focus{outline:none;border-color:var(--green)}
+  .remove-item{background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;text-align:center}
+  .add-item-btn{background:none;border:1.5px dashed var(--soft);border-radius:8px;padding:11px;font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--mid);cursor:pointer;width:100%;margin-bottom:16px}
+  .item-header{display:grid;grid-template-columns:1fr 68px 54px 70px 26px;gap:6px;margin-bottom:6px}
+  .item-header span{font-size:9.5px;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:.5px}
+  .deadline-banner{background:#FEF3DC;border-radius:10px;padding:12px 16px;margin:16px 20px 0;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:#8B6200}
+  .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 20px 0}
+  .stat-box{background:var(--white);border-radius:12px;padding:14px 10px;text-align:center;border:1px solid var(--soft)}
+  .stat-val{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--green);line-height:1;margin-bottom:4px}
+  .stat-lbl{font-size:10px;color:var(--mid);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .search-box{position:relative;margin-bottom:14px}
+  .search-box input{width:100%;padding:12px 16px 12px 40px;border:1.5px solid var(--soft);border-radius:10px;font-family:'Space Grotesk',sans-serif;font-size:14px;background:var(--white)}
+  .search-box input:focus{outline:none;border-color:var(--green)}
+  .search-box::before{content:'🔍';position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px}
+  .cat-pills{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
+  .cat-pill{white-space:nowrap;padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:600;background:var(--white);border:1.5px solid var(--soft);color:var(--mid);cursor:pointer}
+  .cat-pill.active{background:var(--green);border-color:var(--green);color:white}
+  .cat-heading{font-size:13px;font-weight:700;color:var(--charcoal);margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+  .shop-item{background:var(--white);border-radius:12px;padding:14px 16px;margin-bottom:8px;border:1px solid var(--soft);display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .shop-item-info{flex:1}
+  .shop-item-name{font-weight:600;font-size:14px;margin-bottom:2px}
+  .shop-item-price{font-size:13px;color:var(--orange);font-weight:700}
+  .shop-item-unit{font-size:11px;color:var(--mid)}
+  .threshold-strip{margin-top:8px}
+  .threshold-note{font-size:11px;color:var(--green);font-weight:600;margin-top:4px}
+  .qty-control{display:flex;align-items:center;gap:10px}
+  .qty-btn{width:32px;height:32px;border-radius:50%;border:none;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .qty-minus{background:var(--soft);color:var(--charcoal)}
+  .qty-plus{background:var(--green);color:white}
+  .qty-value{font-weight:700;font-size:16px;min-width:20px;text-align:center}
+  .summary-card{background:var(--white);border-radius:14px;padding:18px;margin-bottom:12px;border:1px solid var(--soft)}
+  .summary-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--soft);font-size:14px;gap:12px}
+  .summary-row:last-child{border-bottom:none}
+  .summary-row.total{font-weight:700;font-size:16px;padding-top:12px}
+  .summary-row.muted{color:var(--mid);font-size:13px}
+  .member-card{background:var(--white);border-radius:12px;padding:16px;margin-bottom:10px;border:1px solid var(--soft)}
+  .member-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px}
+  .member-card-name{font-weight:700;font-size:15px}
+  .member-card-total{font-weight:700;color:var(--orange);white-space:nowrap}
+  .member-card-items{font-size:13px;color:var(--mid);line-height:1.7}
+  .paid-tag{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+  .paid-tag.paid{background:#E8F5EE;color:var(--success)}
+  .paid-tag.unpaid{background:#FDEDEC;color:var(--danger)}
+  .paid-tag.pending{background:#FEF3DC;color:#8B6200}
+  .wa-link{color:var(--success);text-decoration:none;font-weight:600;font-size:12px}
+  .consolidated-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--soft);font-size:14px}
+  .consolidated-item:last-child{border-bottom:none}
+  .whatsapp-btn{background:#25D366;color:white;border:none;border-radius:10px;padding:14px 16px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;width:100%;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;display:none;align-items:flex-end}
+  .modal-overlay.open{display:flex}
+  .modal{background:var(--white);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-height:85vh;overflow-y:auto}
+  .modal-handle{width:36px;height:4px;background:var(--soft);border-radius:2px;margin:0 auto 20px}
+  .modal h3{font-size:18px;font-weight:800;margin-bottom:14px}
+  .cart-bubble{position:fixed;bottom:24px;left:20px;background:var(--charcoal);color:white;border-radius:50px;padding:14px 20px;font-weight:700;font-size:14px;cursor:pointer;z-index:50;box-shadow:0 4px 20px rgba(0,0,0,.2);display:none;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif}
+  .cart-bubble.visible{display:flex}
+  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--charcoal);color:white;padding:12px 20px;border-radius:30px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:200;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .divider{height:1px;background:var(--soft);margin:16px 0}
+  .fs-13{font-size:13px}.text-mid{color:var(--mid)}.fw-700{font-weight:700}
+  .empty-state{text-align:center;padding:40px 20px}
+  .empty-icon{font-size:48px;margin-bottom:16px}
+  .empty-state h3{font-size:18px;font-weight:700;margin-bottom:8px}
+  .empty-state p{font-size:14px;color:var(--mid);line-height:1.5}
+  .rate-provider{display:flex;align-items:center;gap:12px;background:var(--white);border-radius:12px;padding:14px 16px;margin-bottom:8px;border:1px solid var(--soft);text-decoration:none;color:inherit}
+  .rate-logo{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+  .spinner{border:3px solid var(--soft);border-top-color:var(--green);border-radius:50%;width:28px;height:28px;animation:spin .8s linear infinite;margin:30px auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="demo-banner" id="demo-banner" style="display:none">⚠️ Demo mode - add your Supabase keys to go live. Data stays on this device only.</div>
+
+<!-- HOME -->
+<div class="screen active" id="screen-home">
+  <div class="header" style="padding-bottom:12px">
+    <div class="logo">My<span>Share</span></div>
+    <button class="header-action" id="auth-btn" onclick="handleAuthButton()">Sign in</button>
+  </div>
+  <div class="rate-banner" onclick="showScreen('screen-rates')">
+    <span style="font-size:13px">💸</span>
+    <div class="rate-banner-text">Today's best GBP→NGN: <strong>₦2,015/£</strong></div>
+    <div class="rate-banner-cta">Compare ›</div>
+  </div>
+  <div class="hero" style="padding-top:20px">
+    <h1>Buy together.<br><em>Save together.</em></h1>
+    <p>Food runs, cow shares, group buys - organised in one tap, not one hundred messages.</p>
+  </div>
+  <div class="body-pad pb-safe">
+    <div class="section-label" id="home-list-label">Your Buys</div>
+    <div id="buys-list"><div class="spinner"></div></div>
+  </div>
+  <button class="fab" onclick="requireAuth(()=>showScreen('screen-choose-type'))">+ Start a Buy</button>
+</div>
+
+<!-- AUTH -->
+<div class="screen" id="screen-auth">
+  <div class="header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="logo">My<span>Share</span></div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="body-pad">
+    <div class="section-label" style="margin:8px 0 20px">Admin Sign In</div>
+    <div id="auth-step-email">
+      <p class="fs-13 text-mid" style="margin-bottom:16px;line-height:1.5">Admins sign in to create and manage buys. Members never need an account - they just use your link.</p>
+      <div class="form-group">
+        <label class="form-label">Your Email</label>
+        <input class="form-input" id="auth-email" type="email" placeholder="you@email.com">
+      </div>
+      <button class="btn btn-primary" onclick="sendMagicLink()">Send Me a Sign-In Link</button>
+      <p class="fs-13 text-mid" style="margin-top:14px;line-height:1.5">Check your email and tap the link - it brings you straight back here, signed in. No password needed.</p>
+    </div>
+    <div id="auth-step-sent" style="display:none">
+      <div class="empty-state">
+        <div class="empty-icon">📬</div>
+        <h3>Check your email</h3>
+        <p>We sent a sign-in link to <strong id="auth-sent-to"></strong>. Tap it on this device and you'll land back here signed in.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHOOSE TYPE -->
+<div class="screen" id="screen-choose-type">
+  <div class="header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="logo">My<span>Share</span></div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="body-pad">
+    <div class="section-label" style="margin-bottom:16px">What kind of buy is this?</div>
+    <div class="type-card" onclick="startCreate('basket')">
+      <div class="type-icon">🧺</div>
+      <div>
+        <div class="type-name">Food Run</div>
+        <div class="type-desc">Group orders from a price list. Members pick their own items; transport is split fairly. Supports pallet thresholds (e.g. yam proceeds at 25 boxes).</div>
+      </div>
+    </div>
+    <div class="type-card" onclick="startCreate('share')">
+      <div class="type-icon">🐄</div>
+      <div>
+        <div class="type-name">Share Buy</div>
+        <div class="type-desc">One big item split into equal shares - a cow, a ram, a bag of rice. Claim a share, pay, admin confirms, share locks.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE BASKET -->
+<div class="screen" id="screen-create-basket">
+  <div class="header">
+    <button class="back-btn" onclick="showScreen('screen-choose-type')">←</button>
+    <div class="logo">My<span>Share</span></div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="body-pad pb-safe">
+    <div class="section-label" style="margin-bottom:20px">🧺 New Food Run</div>
+    <div class="form-group"><label class="form-label">Group Name</label><input class="form-input" id="cb-group" placeholder="e.g. Inverness Bulk Food Buying"></div>
+    <div class="form-group"><label class="form-label">Your Name (Admin)</label><input class="form-input" id="cb-admin" placeholder="Your name"></div>
+    <div class="form-group"><label class="form-label">Order Deadline</label><input class="form-input" id="cb-deadline" type="date"></div>
+    <div class="form-group"><label class="form-label">Pickup / Delivery Date & Location</label><input class="form-input" id="cb-pickup" placeholder="e.g. Sat 14 June, Community Hall car park"></div>
+    <div class="form-group"><label class="form-label">Currency</label>
+      <select class="form-select" id="cb-currency"><option value="£">£ British Pounds</option><option value="₦">₦ Nigerian Naira</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Estimated Transport Cost</label><input class="form-input" id="cb-transport" type="number" placeholder="e.g. 200"><div class="form-hint">Split automatically across everyone who orders.</div></div>
+    <div class="form-group"><label class="form-label">Payment Details</label><input class="form-input" id="cb-payment" placeholder="e.g. Monzo: 04-00-75 / 12345678 - include your name as reference"></div>
+    <div class="form-group"><label class="form-label">Notes (optional)</label><textarea class="form-textarea" id="cb-notes" placeholder="Minimum order, anything members should know..."></textarea></div>
+    <div class="divider"></div>
+    <div class="section-label">Price List</div>
+    <div class="form-hint" style="margin-bottom:10px">Category groups your list (Grains, Frozen Fish, Fresh Produce...). Threshold is optional - e.g. 25 means "this item proceeds at 25 boxes".</div>
+    <div class="item-header"><span>Item</span><span>Price</span><span>Unit</span><span>Category</span><span></span></div>
+    <div id="items-builder"></div>
+    <button class="add-item-btn" onclick="addItemRow()">+ Add Item</button>
+    <button class="btn btn-orange" onclick="createBasket()" id="cb-submit">Create Food Run</button>
+  </div>
+</div>
+
+<!-- CREATE SHARE -->
+<div class="screen" id="screen-create-share">
+  <div class="header">
+    <button class="back-btn" onclick="showScreen('screen-choose-type')">←</button>
+    <div class="logo">My<span>Share</span></div>
+    <div style="width:32px"></div>
+  </div>
+  <div class="body-pad pb-safe">
+    <div class="section-label" style="margin-bottom:20px">🐄 New Share Buy</div>
+    <div class="form-group"><label class="form-label">What are you sharing?</label><input class="form-input" id="cs-item" placeholder="e.g. Whole Cow, 50kg Bag of Rice, Ram"></div>
+    <div class="form-group"><label class="form-label">Group / Community Name</label><input class="form-input" id="cs-group" placeholder="e.g. Ikoyi Estate Residents"></div>
+    <div class="form-group"><label class="form-label">Your Name (Admin)</label><input class="form-input" id="cs-admin" placeholder="Your name"></div>
+    <div class="form-group"><label class="form-label">Currency</label>
+      <select class="form-select" id="cs-currency"><option value="₦">₦ Nigerian Naira</option><option value="£">£ British Pounds</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Total Cost</label><input class="form-input" id="cs-total" type="number" placeholder="e.g. 800000"><div class="form-hint">Full cost including delivery / slaughter fees.</div></div>
+    <div class="form-group"><label class="form-label">Number of Shares</label>
+      <select class="form-select" id="cs-shares"><option>4</option><option>5</option><option selected>6</option><option>8</option><option>10</option><option>12</option></select>
+      <div class="form-hint" id="cs-share-preview">Each share will be calculated once you enter the total cost.</div>
+    </div>
+    <div class="form-group"><label class="form-label">Payment Deadline</label><input class="form-input" id="cs-deadline" type="date"></div>
+    <div class="form-group"><label class="form-label">Collection Date & Location</label><input class="form-input" id="cs-collection" placeholder="e.g. Sat 14 June, Kara Market Berger"></div>
+    <div class="form-group"><label class="form-label">Payment Details</label><input class="form-input" id="cs-payment" placeholder="e.g. OPay: 8012345678 - Kimberly O."></div>
+    <div class="form-group">
+      <label class="form-label">Require Approval?</label>
+      <select class="form-select" id="cs-approval"><option value="false">No - anyone with the link can claim</option><option value="true">Yes - I approve each claim before it counts</option></select>
+    </div>
+    <button class="btn btn-gold" onclick="createShare()" id="cs-submit">Create Share Buy</button>
+  </div>
+</div>
+
+<!-- DETAIL -->
+<div class="screen" id="screen-detail">
+  <div class="header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="logo">My<span>Share</span></div>
+    <div style="width:32px"></div>
+  </div>
+  <div id="detail-content" class="pb-safe"><div class="spinner"></div></div>
+</div>
+
+<!-- SHOP -->
+<div class="screen" id="screen-shop">
+  <div class="header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="logo">My<span>Share</span></div>
+    <div style="width:32px"></div>
+  </div>
+  <div id="shop-content" class="pb-safe"><div class="spinner"></div></div>
+</div>
+
+<!-- RATES -->
+<div class="screen" id="screen-rates">
+  <div class="header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="logo">My<span>Share</span></div>
+    <div style="width:32px"></div>
+  </div>
+  <div style="background:var(--green);padding:0 20px 24px;color:white">
+    <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px">💸 Send Money Home</h2>
+    <p style="font-size:13px;opacity:.75">Compare today's GBP → NGN rates before you send.</p>
+  </div>
+  <div class="body-pad pb-safe">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-size:13px;color:var(--mid);font-weight:600">Send:</span>
+      <div style="position:relative;flex:1">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--green)">£</span>
+        <input type="number" id="rate-amount" value="200" class="form-input" style="padding-left:28px;font-weight:700" oninput="renderRates()">
+      </div>
+    </div>
+    <div id="rates-list"></div>
+    <div style="font-size:11px;color:var(--mid);margin-top:12px;text-align:center;line-height:1.5">Rates are indicative. Tap a provider to see the live rate. MyShare may earn a referral fee at no cost to you.</div>
+  </div>
+</div>
+
+<!-- MODAL: cart -->
+<div class="modal-overlay" id="modal-cart">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3>Your Order Summary</h3>
+    <div id="cart-summary"></div>
+    <div style="height:12px"></div>
+    <button class="btn btn-orange" onclick="submitBasketOrder()" id="submit-order-btn">Submit My Order</button>
+    <div style="height:8px"></div>
+    <button class="btn btn-outline" onclick="closeModal('modal-cart')">Keep Shopping</button>
+  </div>
+</div>
+
+<!-- MODAL: claim -->
+<div class="modal-overlay" id="modal-claim">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3 id="claim-title">Claim Your Share</h3>
+    <div id="claim-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: member details -->
+<div class="modal-overlay" id="modal-name">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3>Your details</h3>
+    <p class="fs-13 text-mid" style="margin-bottom:16px">So the admin knows who this belongs to and can reach you about collection.</p>
+    <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="member-name-input" placeholder="Your full name"></div>
+    <div class="form-group"><label class="form-label">WhatsApp Number</label><input class="form-input" id="member-wa-input" type="tel" placeholder="+44 or +234..."><div class="form-hint">Only the admin sees this. Used for collection updates.</div></div>
+    <button class="btn btn-primary" onclick="confirmMemberDetails()">Continue</button>
+  </div>
+</div>
+
+<!-- MODAL: consolidated -->
+<div class="modal-overlay" id="modal-consolidated">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3>📋 Consolidated Order</h3>
+    <p class="fs-13 text-mid" style="margin-bottom:16px">Total quantities to send to your supplier.</p>
+    <div id="consolidated-content"></div>
+    <div style="height:16px"></div>
+    <button class="whatsapp-btn" id="wa-consolidated-btn">Send to Supplier via WhatsApp</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="cart-bubble" id="cart-bubble">🛒 <span id="cart-count">0 items</span> · <span id="cart-total">£0</span></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// ⚙️ CONFIGURATION - PASTE YOUR SUPABASE VALUES HERE
+// Get both from: Supabase → Project Settings → API
+// ═══════════════════════════════════════════════════
+const SUPABASE_URL = 'https://xacfsgmnkvelueqaldqw.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_fZswotmulnP8CfRsAkf6Sw_9yI_iTlP';
+
+const HANDLING_MARKUP = 1.05; // 5% platform contribution built into transport & share prices
+
+// ═══════════════ SETUP ═══════════════
+const LIVE = SUPABASE_URL.startsWith('https://');
+let sb = null, currentUser = null;
+if (LIVE) {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  document.getElementById('demo-banner').style.display = 'block';
+}
+
+let state = {
+  buys: [],            // list cache (home)
+  currentBuy: null,    // full buy: {buy, items, orders, claims}
+  cart: {},
+  member: null,        // {name, whatsapp}
+  pendingClaim: null,
+  activeCategory: 'All',
+  searchTerm: '',
+  pendingAction: null
+};
+
+// ═══════════════ DATA LAYER ═══════════════
+// Every function works in LIVE (Supabase) or DEMO (localStorage) mode.
+
+function demoLoad() { try { return JSON.parse(localStorage.getItem('myshare_demo') || '{"buys":[],"items":[],"orders":[],"claims":[]}'); } catch(e){ return {buys:[],items:[],orders:[],claims:[]}; } }
+function demoSave(d) { localStorage.setItem('myshare_demo', JSON.stringify(d)); }
+function uid() { return 'id_' + Date.now() + Math.random().toString(36).slice(2,8); }
+
+async function dbMyBuys() {
+  if (LIVE) {
+    if (!currentUser) return [];
+    const { data, error } = await sb.from('buys').select('*').eq('owner', currentUser.id).order('created_at', { ascending: false });
+    if (error) { showToast('Could not load buys'); return []; }
+    return data;
+  }
+  return demoLoad().buys.sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+}
+
+async function dbGetFullBuy(id) {
+  if (LIVE) {
+    const [b, i, o, c] = await Promise.all([
+      sb.from('buys').select('*').eq('id', id).single(),
+      sb.from('items').select('*').eq('buy_id', id).order('sort'),
+      sb.from('orders').select('*').eq('buy_id', id).order('created_at'),
+      sb.from('claims').select('*').eq('buy_id', id).order('slot')
+    ]);
+    if (b.error || !b.data) return null;
+    return { buy: b.data, items: i.data||[], orders: o.data||[], claims: c.data||[] };
+  }
+  const d = demoLoad();
+  const buy = d.buys.find(x => x.id === id);
+  if (!buy) return null;
+  return { buy, items: d.items.filter(x=>x.buy_id===id), orders: d.orders.filter(x=>x.buy_id===id), claims: d.claims.filter(x=>x.buy_id===id).sort((a,b)=>a.slot-b.slot) };
+}
+
+async function dbCreateBuy(buy, items) {
+  if (LIVE) {
+    buy.owner = currentUser.id;
+    const { data, error } = await sb.from('buys').insert(buy).select().single();
+    if (error) { showToast('Error: ' + error.message); return null; }
+    if (items && items.length) {
+      const rows = items.map((it, idx) => ({ ...it, buy_id: data.id, sort: idx }));
+      const r2 = await sb.from('items').insert(rows);
+      if (r2.error) showToast('Items error: ' + r2.error.message);
+    }
+    return data.id;
+  }
+  const d = demoLoad();
+  buy.id = uid(); buy.created_at = new Date().toISOString();
+  d.buys.push(buy);
+  (items||[]).forEach((it, idx) => d.items.push({ ...it, id: uid(), buy_id: buy.id, sort: idx }));
+  demoSave(d);
+  return buy.id;
+}
+
+async function dbInsertOrder(row) {
+  if (LIVE) {
+    const { error } = await sb.from('orders').insert(row);
+    if (error) { showToast('Error: ' + error.message); return false; }
+    return true;
+  }
+  const d = demoLoad(); row.id = uid(); row.created_at = new Date().toISOString(); d.orders.push(row); demoSave(d); return true;
+}
+
+async function dbInsertClaim(row) {
+  if (LIVE) {
+    const { error } = await sb.from('claims').insert(row);
+    if (error) {
+      if (error.code === '23505') { showToast('That share was just taken!'); return 'taken'; }
+      showToast('Error: ' + error.message); return false;
+    }
+    return true;
+  }
+  const d = demoLoad();
+  if (d.claims.find(c => c.buy_id === row.buy_id && c.slot === row.slot)) { showToast('That share was just taken!'); return 'taken'; }
+  row.id = uid(); row.created_at = new Date().toISOString(); d.claims.push(row); demoSave(d); return true;
+}
+
+async function dbUpdate(table, id, patch) {
+  if (LIVE) {
+    const { error } = await sb.from(table).update(patch).eq('id', id);
+    if (error) { showToast('Error: ' + error.message); return false; }
+    return true;
+  }
+  const d = demoLoad();
+  const row = d[table].find(x => x.id === id);
+  if (row) Object.assign(row, patch);
+  demoSave(d); return true;
+}
+
+async function dbDelete(table, id) {
+  if (LIVE) {
+    const { error } = await sb.from(table).delete().eq('id', id);
+    return !error;
+  }
+  const d = demoLoad();
+  d[table] = d[table].filter(x => x.id !== id);
+  demoSave(d); return true;
+}
+
+// ═══════════════ AUTH ═══════════════
+async function initAuth() {
+  if (!LIVE) { updateAuthUI(); return; }
+  const { data } = await sb.auth.getSession();
+  currentUser = data.session?.user || null;
+  sb.auth.onAuthStateChange((_e, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI();
+    if (currentUser && state.pendingAction) { const a = state.pendingAction; state.pendingAction = null; a(); }
+    if (document.getElementById('screen-home').classList.contains('active')) renderHome();
+  });
+  updateAuthUI();
+}
+
+function updateAuthUI() {
+  const btn = document.getElementById('auth-btn');
+  if (!LIVE) { btn.textContent = 'Demo'; return; }
+  btn.textContent = currentUser ? 'Sign out' : 'Sign in';
+}
+
+function handleAuthButton() {
+  if (!LIVE) { showToast('Demo mode - no sign-in needed'); return; }
+  if (currentUser) { sb.auth.signOut(); showToast('Signed out'); }
+  else showScreen('screen-auth');
+}
+
+function requireAuth(action) {
+  if (!LIVE || currentUser) { action(); return; }
+  state.pendingAction = action;
+  showScreen('screen-auth');
+}
+
+async function sendMagicLink() {
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email) { showToast('Enter your email'); return; }
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('?')[0] } });
+  if (error) { showToast(error.message); return; }
+  document.getElementById('auth-sent-to').textContent = email;
+  document.getElementById('auth-step-email').style.display = 'none';
+  document.getElementById('auth-step-sent').style.display = 'block';
+}
+
+// ═══════════════ NAV ═══════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  document.getElementById('cart-bubble').classList.remove('visible');
+  if (id === 'screen-home') renderHome();
+  if (id === 'screen-rates') renderRates();
+  if (id === 'screen-auth') {
+    document.getElementById('auth-step-email').style.display = 'block';
+    document.getElementById('auth-step-sent').style.display = 'none';
+  }
+}
+
+function startCreate(type) {
+  if (type === 'basket') {
+    itemRows = [];
+    document.getElementById('items-builder').innerHTML = '';
+    addItemRow();
+    showScreen('screen-create-basket');
+  } else showScreen('screen-create-share');
+}
+
+// ═══════════════ PRICING ═══════════════
+function sharePriceOf(b) { return Math.ceil((Number(b.total_cost) * HANDLING_MARKUP) / b.num_shares); }
+function transportShareOf(b, orderCount) { const n = Math.max(1, orderCount); return (Number(b.transport||0) * HANDLING_MARKUP) / n; }
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'cs-total' || e.target.id === 'cs-shares') {
+    const total = parseFloat(document.getElementById('cs-total').value) || 0;
+    const n = parseInt(document.getElementById('cs-shares').value) || 6;
+    const cur = document.getElementById('cs-currency').value;
+    document.getElementById('cs-share-preview').textContent =
+      total > 0 ? `Each share: ${cur}${Math.ceil((total*HANDLING_MARKUP)/n).toLocaleString()}` : 'Each share will be calculated once you enter the total cost.';
+  }
+});
+
+// ═══════════════ HOME ═══════════════
+async function renderHome() {
+  const list = document.getElementById('buys-list');
+  const label = document.getElementById('home-list-label');
+  if (LIVE && !currentUser) {
+    label.textContent = 'Welcome';
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🧺</div><h3>Organise your community's buys</h3><p>Sign in to create food runs and share buys.<br><br>Got a link from your group admin? Just tap it - no account needed.</p><div style="height:16px"></div><button class="btn btn-primary" onclick="showScreen('screen-auth')" style="max-width:240px;margin:0 auto">Admin Sign In</button></div>`;
+    return;
+  }
+  label.textContent = 'Your Buys';
+  list.innerHTML = '<div class="spinner"></div>';
+  const buys = await dbMyBuys();
+  if (!buys.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🧺</div><h3>No buys yet</h3><p>Start your first group buy and share the link in your WhatsApp group.</p></div>`;
+    return;
+  }
+  // Need counts - fetch full data per buy (fine at pilot scale)
+  const cards = await Promise.all(buys.map(async b => {
+    const full = await dbGetFullBuy(b.id);
+    return buyCardHTML(full);
+  }));
+  list.innerHTML = cards.join('');
+}
+
+function buyCardHTML(f) {
+  const b = f.buy;
+  if (b.type === 'basket') {
+    const n = f.orders.length;
+    const paid = f.orders.filter(o => o.paid).length;
+    const pct = n ? Math.round(paid/n*100) : 0;
+    return `<div class="buy-card type-basket" onclick="openBuy('${b.id}')">
+      <div class="buy-card-header"><div><div class="buy-type-tag">🧺 Food Run</div><div class="buy-name">${esc(b.title)}</div></div><div class="buy-badge ${b.status==='open'?'badge-open':'badge-closed'}">${b.status==='open'?'Open':'Closed'}</div></div>
+      <div class="buy-meta">Deadline <strong>${fmtDate(b.deadline)}</strong> · <strong>${n}</strong> orders · ${paid}/${n} paid</div>
+      <div class="progress-bar"><div class="progress-fill fill-basket" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+  const locked = f.claims.filter(c => c.paid).length;
+  const per = sharePriceOf(b);
+  const full = locked === b.num_shares;
+  return `<div class="buy-card type-share" onclick="openBuy('${b.id}')">
+    <div class="buy-card-header"><div><div class="buy-type-tag">🐄 Share Buy</div><div class="buy-name">${esc(b.title)}</div></div><div class="buy-badge ${full?'badge-full':'badge-open'}">${full?'Fully locked':(b.num_shares-locked)+' left'}</div></div>
+    <div class="buy-meta"><strong>${b.currency}${per.toLocaleString()}</strong> per share · ${locked}/${b.num_shares} locked</div>
+    <div class="progress-bar"><div class="progress-fill fill-share" style="width:${Math.round(locked/b.num_shares*100)}%"></div></div>
+  </div>`;
+}
+
+async function openBuy(id) {
+  showScreen('screen-detail');
+  document.getElementById('detail-content').innerHTML = '<div class="spinner"></div>';
+  const full = await dbGetFullBuy(id);
+  if (!full) { document.getElementById('detail-content').innerHTML = '<div class="empty-state"><div class="empty-icon">❓</div><h3>Buy not found</h3><p>Ask the admin to reshare the link.</p></div>'; return; }
+  state.currentBuy = full;
+  renderDetail();
+}
+
+function isAdmin() {
+  if (!LIVE) return true; // demo: you are always the admin
+  return currentUser && state.currentBuy && state.currentBuy.buy.owner === currentUser.id;
+}
+
+async function refreshCurrentBuy() {
+  if (!state.currentBuy) return;
+  const full = await dbGetFullBuy(state.currentBuy.buy.id);
+  if (full) { state.currentBuy = full; }
+}
+
+// ═══════════════ DETAIL ═══════════════
+function renderDetail() {
+  const f = state.currentBuy;
+  if (f.buy.type === 'basket') renderBasketDetail(f);
+  else renderShareDetail(f);
+}
+
+function renderBasketDetail(f) {
+  const b = f.buy, admin = isAdmin();
+  const n = f.orders.length;
+  const paid = f.orders.filter(o => o.paid).length;
+  const tShare = transportShareOf(b, n);
+  const foodTotal = f.orders.reduce((s,o) => s + orderFoodTotal(f, o), 0);
+  const shareLink = `${location.href.split('?')[0]}?buy=${b.id}`;
+
+  // Threshold summary across all orders
+  const totals = {};
+  f.orders.forEach(o => Object.entries(o.items||{}).forEach(([iid,q]) => { if(q>0) totals[iid]=(totals[iid]||0)+q; }));
+  const thresholdItems = f.items.filter(it => it.threshold);
+  const thresholdHTML = thresholdItems.length ? `
+    <div class="body-pad" style="padding-bottom:0">
+      <div class="section-label">Threshold Items</div>
+      ${thresholdItems.map(it => {
+        const got = totals[it.id] || 0;
+        const pct = Math.min(100, Math.round(got/it.threshold*100));
+        return `<div style="background:var(--white);border:1px solid var(--soft);border-radius:12px;padding:14px 16px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:6px"><span>${esc(it.name)}</span><span style="color:${got>=it.threshold?'var(--success)':'var(--mid)'}">${got}/${it.threshold} ${esc(it.unit)}s</span></div>
+          <div class="progress-bar"><div class="progress-fill fill-threshold" style="width:${pct}%"></div></div>
+          <div class="threshold-note">${got >= it.threshold ? '✓ Threshold reached - this item proceeds!' : `${it.threshold-got} more needed to proceed`}</div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  const membersHTML = admin ? f.orders.map(o => {
+    const lines = Object.entries(o.items||{}).filter(([,q])=>q>0).map(([iid,q]) => {
+      const it = f.items.find(x=>x.id===iid); return it ? `${esc(it.name)} x${q}` : '';
+    }).filter(Boolean).join(', ');
+    const food = orderFoodTotal(f, o);
+    const grand = food + tShare;
+    return `<div class="member-card">
+      <div class="member-card-header">
+        <div>
+          <div class="member-card-name">${esc(o.member_name)}</div>
+          <div class="fs-13 text-mid">Food ${b.currency}${food.toFixed(2)} + Transport ${b.currency}${tShare.toFixed(2)}${o.whatsapp ? ` · <a class="wa-link" href="https://wa.me/${o.whatsapp.replace(/[^0-9]/g,'')}" target="_blank">WhatsApp ›</a>` : ''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="member-card-total">${b.currency}${grand.toFixed(2)}</div>
+          <div style="margin-top:6px;display:flex;gap:6px;align-items:center;justify-content:flex-end">
+            <span class="paid-tag ${o.paid?'paid':'unpaid'}">${o.paid?'Paid ✓':'Unpaid'}</span>
+            ${!o.paid ? `<button class="btn btn-sm btn-primary" style="padding:5px 10px;font-size:11px" onclick="markOrderPaid('${o.id}')">Mark paid</button>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="member-card-items">${lines || 'No items'}</div>
+    </div>`;
+  }).join('') || `<div class="empty-state" style="padding:30px 0"><div class="empty-icon">📭</div><h3>No orders yet</h3><p>Share the link below to start collecting orders.</p></div>` : '';
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="hero"><h2>🧺 ${esc(b.title)}</h2><p>Admin: ${esc(b.admin_name)} · Deadline ${fmtDate(b.deadline)}${b.pickup ? ' · ' + esc(b.pickup) : ''}</p></div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val">${n}</div><div class="stat-lbl">Orders</div></div>
+      <div class="stat-box"><div class="stat-val">${b.currency}${foodTotal.toFixed(0)}</div><div class="stat-lbl">Food Total</div></div>
+      <div class="stat-box"><div class="stat-val">${paid}/${n}</div><div class="stat-lbl">Paid</div></div>
+    </div>
+    ${thresholdHTML}
+    <div class="body-pad">
+      <button class="btn btn-gold" onclick="startShopping()">🛒 ${admin ? 'Place / Edit My Own Order' : 'View Price List & Order'}</button>
+      ${admin ? `
+      <div class="divider"></div>
+      <div class="section-label">Member Orders (admin only)</div>
+      ${membersHTML}
+      <div class="divider"></div>
+      <div class="section-label">Share & Actions</div>
+      <div style="background:var(--white);border-radius:14px;padding:18px;border:1px solid var(--soft);margin-bottom:12px">
+        <div style="background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--green);font-weight:600;word-break:break-all;margin-bottom:12px">${shareLink}</div>
+        <button class="whatsapp-btn" onclick="shareBasketWA()">Share Order Link on WhatsApp</button>
+      </div>
+      <button class="btn btn-outline" onclick="remindBasket()">📲 Send Payment Reminders</button>
+      <div style="height:10px"></div>
+      <button class="btn btn-primary" onclick="openConsolidated()">📋 Consolidated Supplier Order</button>` : ''}
+    </div>`;
+}
+
+function renderShareDetail(f) {
+  const b = f.buy, admin = isAdmin();
+  const per = sharePriceOf(b);
+  const locked = f.claims.filter(c => c.paid).length;
+  const pendingApproval = f.claims.filter(c => !c.approved).length;
+  const claimedSlots = new Set(f.claims.map(c => c.slot));
+  const full = locked === b.num_shares;
+  const shareLink = `${location.href.split('?')[0]}?buy=${b.id}`;
+
+  const slotsHTML = Array.from({length: b.num_shares}, (_, i) => {
+    const slot = i + 1;
+    const claim = f.claims.find(c => c.slot === slot);
+    if (!claim) {
+      return `<div class="member-card" style="display:flex;align-items:center;gap:12px">
+        <div class="slot free" style="width:42px;height:42px;font-size:14px">${slot}</div>
+        <div style="flex:1"><div style="font-weight:700;font-size:14px">Share ${slot}</div><div class="fs-13 text-mid">Available</div></div>
+        <button class="btn btn-sm btn-gold" onclick="openClaim(${slot})">Claim</button>
+      </div>`;
+    }
+    let statusLine, tags = '', actions = '';
+    if (claim.paid) {
+      statusLine = `${esc(claim.member_name)} · Paid & locked ✓`;
+    } else if (!claim.approved) {
+      statusLine = `${esc(claim.member_name)} · Awaiting admin approval`;
+      if (admin) actions = `<button class="btn btn-sm btn-primary" style="font-size:11px" onclick="approveClaim('${claim.id}')">Approve</button> <button class="btn btn-sm" style="font-size:11px;background:var(--soft)" onclick="releaseClaim('${claim.id}')">Decline</button>`;
+    } else {
+      statusLine = `${esc(claim.member_name)} · Awaiting payment`;
+      if (admin) actions = `<button class="btn btn-sm btn-primary" style="font-size:11px" onclick="lockClaim('${claim.id}')">Mark paid</button> <button class="btn btn-sm" style="font-size:11px;background:var(--soft)" onclick="releaseClaim('${claim.id}')">Release</button>`;
+    }
+    if (admin && claim.whatsapp) statusLine += ` · <a class="wa-link" href="https://wa.me/${claim.whatsapp.replace(/[^0-9]/g,'')}" target="_blank">WhatsApp ›</a>`;
+    return `<div class="member-card" style="display:flex;align-items:center;gap:12px">
+      <div class="slot ${claim.paid?'taken':'pending'}" style="width:42px;height:42px;font-size:14px">${esc(claim.member_name.charAt(0).toUpperCase())}</div>
+      <div style="flex:1"><div style="font-weight:700;font-size:14px">Share ${slot}</div><div class="fs-13 text-mid">${statusLine}</div></div>
+      <div style="display:flex;gap:5px">${actions}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="hero"><h2>🐄 ${esc(b.title)}</h2><p>${esc(b.group_name || '')} · Admin: ${esc(b.admin_name)}</p></div>
+    <div class="deadline-banner">⏰ Pay by ${fmtDate(b.deadline)} · Collection: ${esc(b.collection || 'TBC')}</div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val">${b.currency}${per.toLocaleString()}</div><div class="stat-lbl">Per Share</div></div>
+      <div class="stat-box"><div class="stat-val">${locked}/${b.num_shares}</div><div class="stat-lbl">Locked</div></div>
+      <div class="stat-box"><div class="stat-val">${b.currency}${(locked*per).toLocaleString()}</div><div class="stat-lbl">Collected</div></div>
+    </div>
+    ${full ? `<div class="body-pad" style="padding-bottom:0"><div style="background:#E8F5EE;border-radius:14px;padding:18px;text-align:center"><div style="font-size:28px;margin-bottom:8px">🎉</div><div style="font-weight:700;color:var(--success)">All ${b.num_shares} shares locked - fully funded!</div></div></div>` : ''}
+    ${admin && pendingApproval ? `<div class="body-pad" style="padding-bottom:0"><div style="background:#FEF3DC;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:600;color:#8B6200">👋 ${pendingApproval} claim${pendingApproval>1?'s':''} awaiting your approval below</div></div>` : ''}
+    <div class="body-pad">
+      <div style="background:var(--white);border-radius:12px;padding:14px 16px;border:1px solid var(--soft);margin-bottom:14px;font-size:13px;color:var(--mid);line-height:1.5">
+        💳 Pay to: <strong style="color:var(--charcoal)">${esc(b.payment || 'Ask admin')}</strong><br>
+        A share locks only when the admin confirms payment. Claiming without paying does not hold your share past the deadline.
+      </div>
+      <div class="section-label">Shares</div>
+      ${slotsHTML}
+      ${admin ? `
+      <div class="divider"></div>
+      <div class="section-label">Share This Buy</div>
+      <div style="background:var(--white);border-radius:14px;padding:18px;border:1px solid var(--soft);margin-bottom:12px">
+        <div style="background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--green);font-weight:600;word-break:break-all;margin-bottom:12px">${shareLink}</div>
+        <button class="whatsapp-btn" onclick="shareShareWA()">Share on WhatsApp</button>
+      </div>
+      <button class="btn btn-outline" onclick="remindShare()">📲 Remind Unpaid Claimants</button>` : ''}
+    </div>`;
+}
+
+// ═══════════════ SHARE ACTIONS ═══════════════
+function openClaim(slot) {
+  state.pendingClaim = slot;
+  const b = state.currentBuy.buy;
+  const per = sharePriceOf(b);
+  document.getElementById('claim-title').textContent = `Claim Share ${slot}`;
+  document.getElementById('claim-body').innerHTML = `
+    <p class="fs-13 text-mid" style="margin-bottom:16px">You are claiming 1 of ${b.num_shares} shares of <strong>${esc(b.title)}</strong>.</p>
+    <div class="summary-card">
+      <div class="summary-row total"><span>Your share</span><span>${b.currency}${per.toLocaleString()}</span></div>
+      <div class="summary-row muted"><span>Pay to</span><span style="text-align:right">${esc(b.payment || 'Ask admin')}</span></div>
+      <div class="summary-row muted"><span>Deadline</span><span>${fmtDate(b.deadline)}</span></div>
+    </div>
+    <div class="form-group"><label class="form-label">Your Name</label><input class="form-input" id="claim-name" placeholder="Your full name"></div>
+    <div class="form-group"><label class="form-label">WhatsApp Number</label><input class="form-input" id="claim-wa" type="tel" placeholder="+44 or +234..."><div class="form-hint">Only the admin sees this - for collection updates.</div></div>
+    <button class="btn btn-gold" onclick="confirmClaim()">Claim This Share</button>
+    <div style="height:8px"></div>
+    <button class="btn btn-outline" onclick="closeModal('modal-claim')">Cancel</button>
+    ${b.require_approval ? '<p style="font-size:11px;color:var(--mid);margin-top:12px;text-align:center">This buy requires admin approval before your claim counts.</p>' : ''}`;
+  openModal('modal-claim');
+}
+
+async function confirmClaim() {
+  const name = document.getElementById('claim-name').value.trim();
+  const wa = document.getElementById('claim-wa').value.trim();
+  if (!name) { showToast('Enter your name'); return; }
+  const b = state.currentBuy.buy;
+  const result = await dbInsertClaim({
+    buy_id: b.id, slot: state.pendingClaim, member_name: name, whatsapp: wa,
+    paid: false, approved: !b.require_approval
+  });
+  closeModal('modal-claim');
+  if (result === true) {
+    const per = sharePriceOf(b);
+    showToast(b.require_approval ? 'Claim sent - awaiting admin approval' : `Share claimed - now pay ${b.currency}${per.toLocaleString()}`);
+    const msg = `Hi ${b.admin_name}, I've claimed Share ${state.pendingClaim} of *${b.title}* on MyShare. ${b.require_approval ? 'Awaiting your approval.' : `Sending my payment of *${b.currency}${per.toLocaleString()}* now.`}\n\nName: ${name}\n\n_Sent via MyShare_`;
+    setTimeout(() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank'), 600);
+  }
+  await refreshCurrentBuy(); renderDetail();
+}
+
+async function lockClaim(id) { await dbUpdate('claims', id, { paid: true }); await refreshCurrentBuy(); showToast('Share locked ✓'); renderDetail(); }
+async function approveClaim(id) { await dbUpdate('claims', id, { approved: true }); await refreshCurrentBuy(); showToast('Claim approved'); renderDetail(); }
+async function releaseClaim(id) { await dbDelete('claims', id); await refreshCurrentBuy(); showToast('Share released'); renderDetail(); }
+async function markOrderPaid(id) { await dbUpdate('orders', id, { paid: true }); await refreshCurrentBuy(); showToast('Marked as paid ✓'); renderDetail(); }
+
+// ═══════════════ SHOP ═══════════════
+function startShopping() {
+  state.cart = {};
+  state.activeCategory = 'All';
+  state.searchTerm = '';
+  showScreen('screen-shop');
+  renderShop();
+}
+
+function renderShop() {
+  const f = state.currentBuy;
+  if (!f || f.buy.type !== 'basket') return;
+  const b = f.buy;
+  const cats = ['All', ...new Set(f.items.map(i => i.category || 'General'))];
+  const term = state.searchTerm.toLowerCase();
+
+  const visible = f.items.filter(it =>
+    (state.activeCategory === 'All' || (it.category||'General') === state.activeCategory) &&
+    (!term || it.name.toLowerCase().includes(term))
+  );
+
+  // group visible by category
+  const grouped = {};
+  visible.forEach(it => { const c = it.category || 'General'; (grouped[c] = grouped[c] || []).push(it); });
+
+  // threshold totals from existing orders
+  const totals = {};
+  f.orders.forEach(o => Object.entries(o.items||{}).forEach(([iid,q]) => { if(q>0) totals[iid]=(totals[iid]||0)+q; }));
+
+  const itemsHTML = Object.entries(grouped).map(([cat, items]) => `
+    ${state.activeCategory === 'All' && !term ? `<div class="cat-heading">${esc(cat)}</div>` : ''}
+    ${items.map(it => {
+      const qty = state.cart[it.id] || 0;
+      const got = totals[it.id] || 0;
+      return `<div class="shop-item">
+        <div class="shop-item-info">
+          <div class="shop-item-name">${esc(it.name)}</div>
+          <div class="shop-item-price">${b.currency}${Number(it.price).toFixed(2)} <span class="shop-item-unit">per ${esc(it.unit)}</span></div>
+          ${it.threshold ? `<div class="threshold-note">${got}/${it.threshold} ${esc(it.unit)}s so far${got>=it.threshold?' ✓ proceeding':''}</div>` : ''}
+        </div>
+        <div class="qty-control">
+          <button class="qty-btn qty-minus" onclick="updCart('${it.id}',-1)">−</button>
+          <span class="qty-value" id="qty-${it.id}">${qty}</span>
+          <button class="qty-btn qty-plus" onclick="updCart('${it.id}',1)">+</button>
+        </div>
+      </div>`;
+    }).join('')}`).join('');
+
+  document.getElementById('shop-content').innerHTML = `
+    <div class="hero"><h2>🧺 ${esc(b.title)}</h2><p>Deadline ${fmtDate(b.deadline)}${b.pickup ? ' · ' + esc(b.pickup) : ''}</p></div>
+    ${b.notes ? `<div style="margin:14px 20px 0;background:var(--white);border-radius:10px;padding:13px 16px;border:1px solid var(--soft);font-size:13px;color:var(--mid)">${esc(b.notes)}</div>` : ''}
+    <div class="body-pad" style="padding-top:14px">
+      <div class="search-box"><input placeholder="Search items..." value="${esc(state.searchTerm)}" oninput="state.searchTerm=this.value;renderShopPreserveFocus()"></div>
+      <div class="cat-pills">${cats.map(c => `<div class="cat-pill ${state.activeCategory===c?'active':''}" onclick="state.activeCategory='${esc(c)}';renderShop()">${esc(c)}</div>`).join('')}</div>
+      ${itemsHTML || '<div class="empty-state"><p>No items match.</p></div>'}
+    </div>`;
+  updateCartBubble();
+}
+
+// keep focus in the search box while typing
+let shopRenderTimer = null;
+function renderShopPreserveFocus() {
+  clearTimeout(shopRenderTimer);
+  shopRenderTimer = setTimeout(() => {
+    renderShop();
+    const inp = document.querySelector('.search-box input');
+    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  }, 250);
+}
+
+function updCart(itemId, delta) {
+  state.cart[itemId] = Math.max(0, (state.cart[itemId]||0) + delta);
+  const el = document.getElementById(`qty-${itemId}`);
+  if (el) el.textContent = state.cart[itemId];
+  updateCartBubble();
+}
+
+function updateCartBubble() {
+  const f = state.currentBuy;
+  if (!f) return;
+  const b = f.buy;
+  const totalItems = Object.values(state.cart).reduce((s,v)=>s+v,0);
+  const totalVal = f.items.reduce((s,it)=>s+(Number(it.price)*(state.cart[it.id]||0)),0);
+  document.getElementById('cart-count').textContent = `${totalItems} item${totalItems!==1?'s':''}`;
+  document.getElementById('cart-total').textContent = `${b.currency}${totalVal.toFixed(2)}`;
+  document.getElementById('cart-bubble').classList.toggle('visible', totalItems > 0 && document.getElementById('screen-shop').classList.contains('active'));
+}
+
+document.getElementById('cart-bubble').onclick = () => {
+  if (!Object.values(state.cart).reduce((s,v)=>s+v,0)) { showToast('Add some items first'); return; }
+  openCartModal();
+};
+
+function openCartModal() {
+  const f = state.currentBuy, b = f.buy;
+  const tShare = transportShareOf(b, f.orders.length + 1); // include self
+  const lines = f.items.filter(it => (state.cart[it.id]||0) > 0)
+    .map(it => `<div class="summary-row"><span>${esc(it.name)} x${state.cart[it.id]}</span><span>${b.currency}${(Number(it.price)*state.cart[it.id]).toFixed(2)}</span></div>`).join('');
+  const food = f.items.reduce((s,it)=>s+(Number(it.price)*(state.cart[it.id]||0)),0);
+  document.getElementById('cart-summary').innerHTML = `
+    <div class="summary-card">${lines}
+      <div class="summary-row muted"><span>Your transport share (approx)</span><span>${b.currency}${tShare.toFixed(2)}</span></div>
+      <div class="summary-row total"><span>Total to pay</span><span>${b.currency}${(food+tShare).toFixed(2)}</span></div>
+    </div>
+    <div style="background:var(--cream);border-radius:10px;padding:13px 16px;font-size:13px;color:var(--mid)">💳 Pay to: ${esc(b.payment || 'Ask admin')}<br><span style="font-size:11px">Transport share adjusts slightly as more people join the run.</span></div>`;
+  openModal('modal-cart');
+}
+
+function submitBasketOrder() {
+  if (!state.member) { closeModal('modal-cart'); openModal('modal-name'); return; }
+  finaliseBasketOrder();
+}
+
+function confirmMemberDetails() {
+  const name = document.getElementById('member-name-input').value.trim();
+  const wa = document.getElementById('member-wa-input').value.trim();
+  if (!name) { showToast('Please enter your name'); return; }
+  state.member = { name, whatsapp: wa };
+  closeModal('modal-name');
+  finaliseBasketOrder();
+}
+
+async function finaliseBasketOrder() {
+  const f = state.currentBuy, b = f.buy;
+  const totalItems = Object.values(state.cart).reduce((s,v)=>s+v,0);
+  if (!totalItems) { showToast('Add at least one item'); return; }
+  const btn = document.getElementById('submit-order-btn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+
+  const ok = await dbInsertOrder({
+    buy_id: b.id, member_name: state.member.name, whatsapp: state.member.whatsapp,
+    items: { ...state.cart }, paid: false, approved: true
+  });
+  btn.disabled = false; btn.textContent = 'Submit My Order';
+  if (!ok) return;
+  closeModal('modal-cart');
+  await refreshCurrentBuy();
+
+  const food = f.items.reduce((s,it)=>s+(Number(it.price)*(state.cart[it.id]||0)),0);
+  const tShare = transportShareOf(b, state.currentBuy.orders.length);
+  const grand = food + tShare;
+  state.cart = {};
+
+  document.getElementById('shop-content').innerHTML = `
+    <div class="hero" style="padding-bottom:32px"><h2>Order placed! 🎉</h2><p>Thank you, ${esc(state.member.name)}</p></div>
+    <div class="body-pad">
+      <div class="summary-card">
+        <div class="summary-row"><span>Food total</span><span>${b.currency}${food.toFixed(2)}</span></div>
+        <div class="summary-row muted"><span>Transport share (approx)</span><span>${b.currency}${tShare.toFixed(2)}</span></div>
+        <div class="summary-row total"><span>Total to pay</span><span>${b.currency}${grand.toFixed(2)}</span></div>
+      </div>
+      <div style="background:var(--cream);border-radius:10px;padding:14px 16px;font-size:13px;color:var(--mid);margin-bottom:16px">💳 Pay to: <strong>${esc(b.payment || 'Ask admin')}</strong></div>
+      <button class="whatsapp-btn" onclick="confirmPayWA(${grand.toFixed(2)})">Send Payment Confirmation to Admin</button>
+      <div style="height:10px"></div>
+      <button class="btn btn-outline" onclick="showScreen('screen-home')">Done</button>
+      <div style="margin-top:24px;background:var(--white);border:1px solid var(--soft);border-radius:14px;padding:16px 18px;cursor:pointer" onclick="showScreen('screen-rates')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div><div style="font-weight:700;font-size:14px;margin-bottom:3px">💸 Sending money home this month?</div><div class="fs-13 text-mid">Compare today's best GBP → NGN rates</div></div>
+          <div style="color:var(--gold);font-weight:700;font-size:18px">›</div>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('cart-bubble').classList.remove('visible');
+}
+
+// ═══════════════ CONSOLIDATED ═══════════════
+function openConsolidated() {
+  const f = state.currentBuy, b = f.buy;
+  const totals = {};
+  f.orders.forEach(o => Object.entries(o.items||{}).forEach(([iid,q]) => { if(q>0) totals[iid]=(totals[iid]||0)+q; }));
+  const rows = f.items.filter(it => totals[it.id] > 0).map(it => `
+    <div class="consolidated-item">
+      <div><div class="fw-700">${esc(it.name)}</div><div class="fs-13 text-mid">${b.currency}${it.price} per ${esc(it.unit)}</div></div>
+      <div style="text-align:right"><div class="fw-700">${totals[it.id]} ${esc(it.unit)}${totals[it.id]>1?'s':''}</div><div class="fs-13 text-mid">${b.currency}${(Number(it.price)*totals[it.id]).toFixed(2)}</div></div>
+    </div>`).join('');
+  const grand = f.items.reduce((s,it)=>s+(Number(it.price)*(totals[it.id]||0)),0);
+  document.getElementById('consolidated-content').innerHTML = `${rows || '<p class="text-mid fs-13">No orders yet.</p>'}
+    <div class="divider"></div>
+    <div class="consolidated-item"><div class="fw-700">Total Food</div><div class="fw-700" style="color:var(--orange)">${b.currency}${grand.toFixed(2)}</div></div>`;
+  const lines = f.items.filter(it => totals[it.id]>0).map(it => `${it.name}: ${totals[it.id]} ${it.unit}${totals[it.id]>1?'s':''}`).join('\n');
+  const msg = `📦 *${b.title} - Order for ${fmtDate(b.deadline)}*\n\nPlease prepare:\n\n${lines}\n\nTotal: ${b.currency}${grand.toFixed(2)}\n\nKindly confirm. Thank you!`;
+  document.getElementById('wa-consolidated-btn').onclick = () => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  openModal('modal-consolidated');
+}
+
+// ═══════════════ CREATE ═══════════════
+let itemRows = [];
+function addItemRow() {
+  const id = 'r_' + Date.now() + Math.random().toString(36).slice(2,5);
+  itemRows.push(id);
+  const row = document.createElement('div');
+  row.className = 'item-row'; row.id = `row-${id}`;
+  row.innerHTML = `
+    <input placeholder="Item name" id="iname-${id}">
+    <input type="number" placeholder="0.00" id="iprice-${id}">
+    <input placeholder="box" value="box" id="iunit-${id}">
+    <input placeholder="General" id="icat-${id}" list="cat-suggestions">
+    <button class="remove-item" onclick="removeItemRow('${id}')">×</button>`;
+  document.getElementById('items-builder').appendChild(row);
+  if (!document.getElementById('cat-suggestions')) {
+    const dl = document.createElement('datalist');
+    dl.id = 'cat-suggestions';
+    dl.innerHTML = ['Grains & Swallows','Rice & Beans','Frozen Fish','Frozen Poultry','Beef & Cow Parts','Fresh Produce','Drinks','Breakfast & Dairy','Cooking Ingredients','Snacks','General'].map(c=>`<option value="${c}">`).join('');
+    document.body.appendChild(dl);
+  }
+}
+function removeItemRow(id) { itemRows = itemRows.filter(i=>i!==id); document.getElementById(`row-${id}`)?.remove(); }
+
+async function createBasket() {
+  const title = document.getElementById('cb-group').value.trim();
+  const admin_name = document.getElementById('cb-admin').value.trim();
+  const deadline = document.getElementById('cb-deadline').value;
+  if (!title || !admin_name || !deadline) { showToast('Fill in group name, your name and deadline'); return; }
+  const items = itemRows.map(id => {
+    const name = document.getElementById(`iname-${id}`)?.value.trim();
+    if (!name) return null;
+    return {
+      name,
+      price: parseFloat(document.getElementById(`iprice-${id}`)?.value) || 0,
+      unit: document.getElementById(`iunit-${id}`)?.value.trim() || 'box',
+      category: document.getElementById(`icat-${id}`)?.value.trim() || 'General',
+      threshold: null
+    };
+  }).filter(Boolean);
+  if (!items.length) { showToast('Add at least one item'); return; }
+  const btn = document.getElementById('cb-submit');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  const buyId = await dbCreateBuy({
+    type: 'basket', title, group_name: title, admin_name, deadline,
+    pickup: document.getElementById('cb-pickup').value.trim(),
+    currency: document.getElementById('cb-currency').value,
+    transport: parseFloat(document.getElementById('cb-transport').value) || 0,
+    payment: document.getElementById('cb-payment').value.trim(),
+    notes: document.getElementById('cb-notes').value.trim(),
+    require_approval: false, status: 'open'
+  }, items);
+  btn.disabled = false; btn.textContent = 'Create Food Run';
+  if (buyId) { showToast('Food run created!'); openBuy(buyId); }
+}
+
+async function createShare() {
+  const title = document.getElementById('cs-item').value.trim();
+  const admin_name = document.getElementById('cs-admin').value.trim();
+  const total_cost = parseFloat(document.getElementById('cs-total').value);
+  if (!title || !admin_name || !total_cost) { showToast('Fill in item, your name and total cost'); return; }
+  const btn = document.getElementById('cs-submit');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  const buyId = await dbCreateBuy({
+    type: 'share', title,
+    group_name: document.getElementById('cs-group').value.trim(),
+    admin_name,
+    currency: document.getElementById('cs-currency').value,
+    total_cost, num_shares: parseInt(document.getElementById('cs-shares').value),
+    deadline: document.getElementById('cs-deadline').value || null,
+    collection: document.getElementById('cs-collection').value.trim(),
+    payment: document.getElementById('cs-payment').value.trim(),
+    require_approval: document.getElementById('cs-approval').value === 'true',
+    status: 'open'
+  }, []);
+  btn.disabled = false; btn.textContent = 'Create Share Buy';
+  if (buyId) { showToast('Share buy created!'); openBuy(buyId); }
+}
+
+// ═══════════════ WHATSAPP ═══════════════
+function shareBasketWA() {
+  const f = state.currentBuy, b = f.buy;
+  const link = `${location.href.split('?')[0]}?buy=${b.id}`;
+  const preview = f.items.slice(0,5).map(i=>`• ${i.name}: ${b.currency}${i.price}`).join('\n');
+  const msg = `🧺 *${b.title}*\n\nOrder deadline: *${fmtDate(b.deadline)}*\n${b.pickup ? `Pickup: *${b.pickup}*\n` : ''}\n${preview}${f.items.length>5?`\n+ ${f.items.length-5} more items`:''}\n\nTap to order 👇\n${link}\n\n_Organised with MyShare_`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function shareShareWA() {
+  const f = state.currentBuy, b = f.buy;
+  const per = sharePriceOf(b);
+  const free = b.num_shares - f.claims.filter(c=>c.paid).length;
+  const link = `${location.href.split('?')[0]}?buy=${b.id}`;
+  const msg = `🐄 *${b.title} - Share Buy*\n\n${b.currency}${per.toLocaleString()} per share · *${free} left*\nPay by: ${fmtDate(b.deadline)}\nCollection: ${b.collection || 'TBC'}\n\nClaim your share 👇\n${link}\n\n_Organised with MyShare_`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function remindBasket() {
+  const f = state.currentBuy, b = f.buy;
+  const unpaid = f.orders.filter(o => !o.paid);
+  if (!unpaid.length) { showToast('Everyone has paid!'); return; }
+  const msg = `🔔 *${b.title} - Payment Reminder*\n\nHi ${unpaid.map(o=>o.member_name).join(', ')},\n\nFriendly reminder to send your payment for the food order.\n\n💳 ${b.payment}\n\nPlease include your name as reference. Thank you! 🙏\n\n_MyShare_`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function remindShare() {
+  const f = state.currentBuy, b = f.buy;
+  const unpaid = f.claims.filter(c => c.approved && !c.paid);
+  if (!unpaid.length) { showToast('No unpaid claims'); return; }
+  const per = sharePriceOf(b);
+  const msg = `🔔 *${b.title} - Payment Reminder*\n\nHi ${unpaid.map(c=>c.member_name).join(', ')},\n\nYour claimed share of *${b.currency}${per.toLocaleString()}* is due by *${fmtDate(b.deadline)}*.\n\n💳 ${b.payment}\n\nUnpaid shares may be released after the deadline. Thank you! 🙏\n\n_MyShare_`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function confirmPayWA(total) {
+  const b = state.currentBuy.buy;
+  const msg = `Hi ${b.admin_name}, I've placed my order on MyShare and I'm sending my payment of *${b.currency}${total}* now.\n\nName: ${state.member.name}\n\n_Sent via MyShare_`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// ═══════════════ RATES ═══════════════
+const PROVIDERS = [
+  { name:'WorldRemit', logo:'🌍', rateBase:2015, fee:1.99, speed:'Minutes', color:'#E8621A', url:'https://www.worldremit.com/en?utm_source=myshare', tag:'Best rate' },
+  { name:'Remitly', logo:'🔵', rateBase:1998, fee:2.99, speed:'Minutes', color:'#1E3A8A', url:'https://www.remitly.com/gb/en/?utm_source=myshare', tag:'Fast' },
+  { name:'Wise', logo:'💚', rateBase:1988, fee:3.44, speed:'1-2 days', color:'#2D7A4F', url:'https://wise.com/?utm_source=myshare', tag:'Transparent' },
+  { name:'Sendwave', logo:'🌊', rateBase:1976, fee:0, speed:'Instant', color:'#0EA5E9', url:'https://www.sendwave.com/?utm_source=myshare', tag:'Zero fees' }
+];
+
+function renderRates() {
+  const el = document.getElementById('rates-list');
+  if (!el) return;
+  const amount = parseFloat(document.getElementById('rate-amount')?.value) || 200;
+  const sorted = PROVIDERS.map(p => {
+    const rate = p.rateBase + (Math.sin(amount*0.01+p.rateBase)*6);
+    return { ...p, youGet: Math.round((amount - p.fee) * rate) };
+  }).sort((a,b) => b.youGet - a.youGet);
+  el.innerHTML = sorted.map((p,i) => `
+    <a class="rate-provider" href="${p.url}" target="_blank" rel="noopener">
+      <div class="rate-logo" style="background:${p.color}18">${p.logo}</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+          <span style="font-weight:700;font-size:14px">${p.name}</span>
+          <span style="background:${i===0?'var(--gold)':'var(--soft)'};color:${i===0?'var(--charcoal)':'var(--mid)'};font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">${p.tag}</span>
+        </div>
+        <div style="font-size:12px;color:var(--mid)">Fee: ${p.fee===0?'<span style="color:var(--success);font-weight:600">Free</span>':'£'+p.fee} · ${p.speed}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:${i===0?'var(--green)':'var(--charcoal)'}">₦${p.youGet.toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--mid)">recipient gets</div>
+      </div>
+    </a>`).join('');
+}
+
+// ═══════════════ JOIN LINK + POLLING ═══════════════
+async function checkJoinLink() {
+  const buyId = new URLSearchParams(location.search).get('buy');
+  if (buyId) await openBuy(buyId);
+}
+
+// Refresh open buy every 12s so slot claims and orders appear live
+setInterval(async () => {
+  if (state.currentBuy && document.getElementById('screen-detail').classList.contains('active') && !document.querySelector('.modal-overlay.open')) {
+    await refreshCurrentBuy();
+    renderDetail();
+  }
+}, 12000);
+
+// ═══════════════ HELPERS ═══════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); }));
+function orderFoodTotal(f, o) { return f.items.reduce((s,it)=>s+(Number(it.price)*((o.items||{})[it.id]||0)),0); }
+function fmtDate(d) { if (!d) return 'TBC'; try { return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'}); } catch(e){ return d; } }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+// ═══════════════ INIT ═══════════════
+(async function init() {
+  await initAuth();
+  await checkJoinLink();
+  if (!new URLSearchParams(location.search).get('buy')) renderHome();
+})();
+</script>
+</body>
+</html>
