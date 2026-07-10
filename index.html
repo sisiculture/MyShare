@@ -379,6 +379,15 @@
   </div>
 </div>
 
+<!-- MODAL: edit buy -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3>✏️ Edit Details</h3>
+    <div id="edit-body"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <div class="cart-bubble" id="cart-bubble">🛒 <span id="cart-count">0 items</span> · <span id="cart-total">£0</span></div>
 
@@ -409,6 +418,7 @@ let state = {
   member: null,        // {name, whatsapp}
   pendingClaim: null,
   activeCategory: 'All',
+  showArchived: false,
   searchTerm: '',
   pendingAction: null
 };
@@ -608,11 +618,18 @@ async function renderHome() {
     return;
   }
   // Need counts - fetch full data per buy (fine at pilot scale)
-  const cards = await Promise.all(buys.map(async b => {
+  const active = buys.filter(b => !b.archived);
+  const archived = buys.filter(b => b.archived);
+  const shown = state.showArchived ? archived : active;
+  const cards = await Promise.all(shown.map(async b => {
     const full = await dbGetFullBuy(b.id);
     return buyCardHTML(full);
   }));
-  list.innerHTML = cards.join('');
+  label.textContent = state.showArchived ? 'Archived Buys' : 'Your Buys';
+  const toggle = archived.length || state.showArchived
+    ? `<div style="text-align:center;margin-top:14px"><button class="btn btn-sm" style="background:var(--soft);color:var(--mid)" onclick="state.showArchived=!state.showArchived;renderHome()">${state.showArchived ? '← Back to active buys' : `📦 View archived (${archived.length})`}</button></div>`
+    : '';
+  list.innerHTML = (cards.join('') || `<div class="empty-state"><div class="empty-icon">📦</div><p>${state.showArchived ? 'Nothing archived yet.' : 'No active buys.'}</p></div>`) + toggle;
 }
 
 function buyCardHTML(f) {
@@ -622,7 +639,7 @@ function buyCardHTML(f) {
     const paid = f.orders.filter(o => o.paid).length;
     const pct = n ? Math.round(paid/n*100) : 0;
     return `<div class="buy-card type-basket" onclick="openBuy('${b.id}')">
-      <div class="buy-card-header"><div><div class="buy-type-tag">🧺 Food Run</div><div class="buy-name">${esc(b.title)}</div></div><div class="buy-badge ${b.status==='open'?'badge-open':'badge-closed'}">${b.status==='open'?'Open':'Closed'}</div></div>
+      <div class="buy-card-header"><div><div class="buy-type-tag">🧺 Food Run</div><div class="buy-name">${esc(b.title)}</div></div><div class="buy-badge ${b.archived?'badge-closed':(b.status==='open'?'badge-open':'badge-closed')}">${b.archived?'Archived':(b.status==='open'?'Open':'Closed')}</div></div>
       <div class="buy-meta">Deadline <strong>${fmtDate(b.deadline)}</strong> · <strong>${n}</strong> orders · ${paid}/${n} paid</div>
       <div class="progress-bar"><div class="progress-fill fill-basket" style="width:${pct}%"></div></div>
     </div>`;
@@ -725,6 +742,18 @@ function renderBasketDetail(f) {
     <div class="body-pad">
       <button class="btn btn-gold" onclick="startShopping()">🛒 ${admin ? 'Place / Edit My Own Order' : 'View Price List & Order'}</button>
       ${admin ? `
+      <div style="height:10px"></div>
+      <button class="btn btn-outline" onclick="openEditBuy()">✏️ Edit Run Details</button>
+      <div style="height:10px"></div>
+      <button class="btn btn-outline" style="border-color:var(--soft);color:var(--mid)" onclick="toggleArchive()">${b.archived ? '↩️ Restore to Active' : '📦 Archive This Run'}</button>
+      <div class="divider"></div>
+      <div class="section-label">Price List (tap to edit)</div>
+      ${f.items.map(it => `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--soft);border-radius:10px;padding:10px 14px;margin-bottom:6px">
+        <div style="flex:1;font-size:13px"><strong>${esc(it.name)}</strong> · ${b.currency}${it.price}/${esc(it.unit)} <span class="text-mid">· ${esc(it.category||'General')}</span></div>
+        <button class="btn btn-sm" style="background:var(--soft);font-size:11px;padding:5px 10px" onclick="editItem('${it.id}')">✏️</button>
+        <button class="btn btn-sm" style="background:#FDEDEC;color:var(--danger);font-size:11px;padding:5px 10px" onclick="deleteItem('${it.id}')">×</button>
+      </div>`).join('')}
+      <button class="add-item-btn" onclick="addItemQuick()">+ Add Item</button>
       <div class="divider"></div>
       <div class="section-label">Member Orders (admin only)</div>
       ${membersHTML}
@@ -801,7 +830,11 @@ function renderShareDetail(f) {
         <div style="background:var(--cream);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--green);font-weight:600;word-break:break-all;margin-bottom:12px">${shareLink}</div>
         <button class="whatsapp-btn" onclick="shareShareWA()">Share on WhatsApp</button>
       </div>
-      <button class="btn btn-outline" onclick="remindShare()">📲 Remind Unpaid Claimants</button>` : ''}
+      <button class="btn btn-outline" onclick="remindShare()">📲 Remind Unpaid Claimants</button>
+      <div style="height:10px"></div>
+      <button class="btn btn-outline" onclick="openEditBuy()">✏️ Edit Buy Details</button>
+      <div style="height:10px"></div>
+      <button class="btn btn-outline" style="border-color:var(--soft);color:var(--mid)" onclick="toggleArchive()">${b.archived ? '↩️ Restore to Active' : '📦 Archive This Buy'}</button>` : ''}
     </div>`;
 }
 
@@ -1153,6 +1186,90 @@ function confirmPayWA(total) {
   const b = state.currentBuy.buy;
   const msg = `Hi ${b.admin_name}, I've placed my order on MyShare and I'm sending my payment of *${b.currency}${total}* now.\n\nName: ${state.member.name}\n\n_Sent via MyShare_`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// ═══════════════ ARCHIVE ═══════════════
+async function toggleArchive() {
+  const b = state.currentBuy.buy;
+  const to = !b.archived;
+  if (to && !confirm('Archive this buy? Members with the link can still view it, but it moves out of your active dashboard.')) return;
+  await dbUpdate('buys', b.id, { archived: to });
+  showToast(to ? 'Archived 📦' : 'Restored to active');
+  if (to) showScreen('screen-home');
+  else { await refreshCurrentBuy(); renderDetail(); }
+}
+
+// ═══════════════ ADMIN EDITING ═══════════════
+function openEditBuy() {
+  const b = state.currentBuy.buy;
+  const isB = b.type === 'basket';
+  document.getElementById('edit-body').innerHTML = `
+    <div class="form-group"><label class="form-label">${isB ? 'Group Name' : 'Item Being Shared'}</label><input class="form-input" id="e-title" value="${esc(b.title)}"></div>
+    <div class="form-group"><label class="form-label">Deadline</label><input class="form-input" id="e-deadline" type="date" value="${b.deadline || ''}"></div>
+    ${isB ? `<div class="form-group"><label class="form-label">Pickup Details</label><input class="form-input" id="e-pickup" value="${esc(b.pickup || '')}"></div>
+    <div class="form-group"><label class="form-label">Transport Cost</label><input class="form-input" id="e-transport" type="number" value="${b.transport || 0}"></div>` :
+    `<div class="form-group"><label class="form-label">Total Cost</label><input class="form-input" id="e-total" type="number" value="${b.total_cost || ''}"></div>
+    <div class="form-group"><label class="form-label">Collection</label><input class="form-input" id="e-collection" value="${esc(b.collection || '')}"></div>`}
+    <div class="form-group"><label class="form-label">Payment Details</label><input class="form-input" id="e-payment" value="${esc(b.payment || '')}"></div>
+    ${isB ? `<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="e-notes">${esc(b.notes || '')}</textarea></div>` : ''}
+    <button class="btn btn-primary" onclick="saveEditBuy()">Save Changes</button>
+    <div style="height:8px"></div>
+    <button class="btn btn-outline" onclick="closeModal('modal-edit')">Cancel</button>`;
+  openModal('modal-edit');
+}
+
+async function saveEditBuy() {
+  const b = state.currentBuy.buy;
+  const patch = {
+    title: document.getElementById('e-title').value.trim(),
+    deadline: document.getElementById('e-deadline').value || null,
+    payment: document.getElementById('e-payment').value.trim()
+  };
+  if (b.type === 'basket') {
+    patch.pickup = document.getElementById('e-pickup').value.trim();
+    patch.transport = parseFloat(document.getElementById('e-transport').value) || 0;
+    patch.notes = document.getElementById('e-notes').value.trim();
+  } else {
+    patch.total_cost = parseFloat(document.getElementById('e-total').value) || b.total_cost;
+    patch.collection = document.getElementById('e-collection').value.trim();
+  }
+  await dbUpdate('buys', b.id, patch);
+  closeModal('modal-edit');
+  await refreshCurrentBuy(); renderDetail();
+  showToast('Details updated ✓');
+}
+
+async function editItem(id) {
+  const it = state.currentBuy.items.find(x => x.id === id);
+  const name = prompt('Item name:', it.name); if (name === null) return;
+  const price = prompt('Price:', it.price); if (price === null) return;
+  const unit = prompt('Unit (box, bag, kg...):', it.unit); if (unit === null) return;
+  const category = prompt('Category:', it.category || 'General'); if (category === null) return;
+  await dbUpdate('items', id, { name: name.trim(), price: parseFloat(price) || 0, unit: unit.trim() || 'box', category: category.trim() || 'General' });
+  await refreshCurrentBuy(); renderDetail(); showToast('Item updated ✓');
+}
+
+async function deleteItem(id) {
+  if (!confirm('Remove this item from the price list?')) return;
+  await dbDelete('items', id);
+  await refreshCurrentBuy(); renderDetail(); showToast('Item removed');
+}
+
+async function addItemQuick() {
+  const name = prompt('Item name:'); if (!name) return;
+  const price = prompt('Price:', '0'); if (price === null) return;
+  const unit = prompt('Unit:', 'box') || 'box';
+  const category = prompt('Category:', 'General') || 'General';
+  const b = state.currentBuy.buy;
+  if (LIVE) {
+    const { error } = await sb.from('items').insert({ buy_id: b.id, name: name.trim(), price: parseFloat(price) || 0, unit, category, sort: state.currentBuy.items.length });
+    if (error) { showToast(error.message); return; }
+  } else {
+    const d = demoLoad();
+    d.items.push({ id: uid(), buy_id: b.id, name: name.trim(), price: parseFloat(price) || 0, unit, category, sort: d.items.length });
+    demoSave(d);
+  }
+  await refreshCurrentBuy(); renderDetail(); showToast('Item added ✓');
 }
 
 // ═══════════════ RATES ═══════════════
