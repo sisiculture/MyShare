@@ -893,6 +893,7 @@ function startShopping() {
   state.cart = {};
   state.activeCategory = 'All';
   state.searchTerm = '';
+  state.collapsedCats = null;
   showScreen('screen-shop');
   renderShop();
 }
@@ -903,6 +904,13 @@ function renderShop() {
   const b = f.buy;
   const cats = ['All', ...new Set(f.items.map(i => i.category || 'General'))];
   const term = state.searchTerm.toLowerCase();
+  // collapse all categories by default on first open
+  if (!state.collapsedCats) {
+    state.collapsedCats = {};
+    cats.filter(c => c !== 'All').forEach(c => {
+      state.collapsedCats[c.replace(/[^a-zA-Z0-9]/g,'_')] = true;
+    });
+  }
 
   const visible = f.items.filter(it =>
     (state.activeCategory === 'All' || (it.category||'General') === state.activeCategory) &&
@@ -1318,6 +1326,24 @@ async function duplicateBuy() {
 
   showToast('Copy created - update the deadline and share!');
   await openBuy(newId);
+}
+
+// ═══════════════ CATEGORY TOGGLE ═══════════════
+function toggleCat(catId) {
+  if (!state.collapsedCats) state.collapsedCats = {};
+  state.collapsedCats[catId] = !state.collapsedCats[catId];
+  // just toggle DOM directly without full re-render (keeps cart state)
+  const panel = document.getElementById('cat-' + catId);
+  if (!panel) { renderShop(); return; }
+  const isNowCollapsed = state.collapsedCats[catId];
+  panel.style.display = isNowCollapsed ? 'none' : 'block';
+  // rotate the arrow
+  const header = panel.previousElementSibling;
+  if (header) {
+    const arrow = header.querySelector('span:last-child');
+    if (arrow) arrow.style.transform = isNowCollapsed ? 'rotate(0deg)' : 'rotate(90deg)';
+    header.style.borderBottom = isNowCollapsed ? 'none' : '1px solid var(--soft)';
+  }
 }
 
 // ═══════════════ RATES ═══════════════
