@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="theme-color" content="#1B5E3B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MyShare">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MyShare – Buy Together. Save Together.</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -145,7 +151,19 @@
   .empty-state p{font-size:14px;color:var(--mid);line-height:1.5}
   .rate-provider{display:flex;align-items:center;gap:12px;background:var(--white);border-radius:12px;padding:14px 16px;margin-bottom:8px;border:1px solid var(--soft);text-decoration:none;color:inherit}
   .rate-logo{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
-  .spinner{border:3px solid var(--soft);border-top-color:var(--green);border-radius:50%;width:28px;height:28px;animation:spin .8s linear infinite;margin:30px auto}
+  .admin-card{background:var(--white);border-radius:12px;padding:16px;margin-bottom:10px;border:1px solid var(--soft)}
+.admin-card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px}
+.admin-name{font-weight:700;font-size:15px}
+.admin-email{font-size:12px;color:var(--mid);margin-bottom:6px}
+.admin-meta{font-size:12px;color:var(--mid)}
+.status-pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.status-pending{background:#FEF3DC;color:#8B6200}
+.status-approved{background:#E8F5EE;color:var(--success)}
+.status-blocked{background:#FDEDEC;color:var(--danger)}
+.platform-stat{background:var(--white);border-radius:12px;padding:18px;border:1px solid var(--soft);text-align:center;flex:1}
+.platform-stat-val{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--green);margin-bottom:4px}
+.platform-stat-lbl{font-size:11px;color:var(--mid);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.spinner{border:3px solid var(--soft);border-top-color:var(--green);border-radius:50%;width:28px;height:28px;animation:spin .8s linear infinite;margin:30px auto}
   @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
@@ -388,6 +406,43 @@
   </div>
 </div>
 
+<!-- SCREEN: Super Admin Dashboard -->
+<div class="screen" id="screen-superadmin">
+  <div class="header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="logo">My<span>Share</span> <span style="font-size:12px;color:var(--gold);font-family:'Space Grotesk',sans-serif;font-weight:600">ADMIN</span></div>
+    <div style="width:32px"></div>
+  </div>
+  <div id="superadmin-content" class="pb-safe"><div class="spinner"></div></div>
+</div>
+
+<!-- SCREEN: Pending approval -->
+<div class="screen" id="screen-pending">
+  <div class="header" style="padding-bottom:12px">
+    <div class="logo">My<span>Share</span></div>
+    <button class="header-action" onclick="handleAuthButton()">Sign out</button>
+  </div>
+  <div class="body-pad" style="text-align:center;padding-top:60px">
+    <div style="font-size:48px;margin-bottom:16px">⏳</div>
+    <h3 style="font-size:20px;font-weight:800;margin-bottom:12px">Application received</h3>
+    <p style="font-size:14px;color:var(--mid);line-height:1.6;margin-bottom:24px">Your admin account is pending approval. You will receive an email once approved and can start creating buys right away.</p>
+    <p style="font-size:13px;color:var(--mid)">Questions? WhatsApp the MyShare team.</p>
+  </div>
+</div>
+
+<!-- SCREEN: Blocked -->
+<div class="screen" id="screen-blocked">
+  <div class="header" style="padding-bottom:12px">
+    <div class="logo">My<span>Share</span></div>
+    <button class="header-action" onclick="handleAuthButton()">Sign out</button>
+  </div>
+  <div class="body-pad" style="text-align:center;padding-top:60px">
+    <div style="font-size:48px;margin-bottom:16px">🚫</div>
+    <h3 style="font-size:20px;font-weight:800;margin-bottom:12px">Account suspended</h3>
+    <p style="font-size:14px;color:var(--mid);line-height:1.6">This account has been suspended. Contact the MyShare team if you think this is an error.</p>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <div class="cart-bubble" id="cart-bubble">🛒 <span id="cart-count">0 items</span> · <span id="cart-total">£0</span></div>
 
@@ -527,10 +582,15 @@ async function initAuth() {
   if (!LIVE) { updateAuthUI(); return; }
   const { data } = await sb.auth.getSession();
   currentUser = data.session?.user || null;
-  sb.auth.onAuthStateChange((_e, session) => {
+  sb.auth.onAuthStateChange(async (_e, session) => {
     currentUser = session?.user || null;
     updateAuthUI();
-    if (currentUser && state.pendingAction) { const a = state.pendingAction; state.pendingAction = null; a(); }
+    if (currentUser) {
+      const status = await checkAdminStatus();
+      if (status === 'pending') { showScreen('screen-pending'); return; }
+      if (status === 'blocked') { showScreen('screen-blocked'); return; }
+      if (state.pendingAction) { const a = state.pendingAction; state.pendingAction = null; a(); }
+    }
     if (document.getElementById('screen-home').classList.contains('active')) renderHome();
   });
   updateAuthUI();
@@ -539,7 +599,13 @@ async function initAuth() {
 function updateAuthUI() {
   const btn = document.getElementById('auth-btn');
   if (!LIVE) { btn.textContent = 'Demo'; return; }
-  btn.textContent = currentUser ? 'Sign out' : 'Sign in';
+  if (currentUser && currentProfile && currentProfile.is_super_admin) {
+    btn.textContent = '⭐ Admin';
+    btn.onclick = () => openSuperAdmin();
+  } else {
+    btn.textContent = currentUser ? 'Sign out' : 'Sign in';
+    btn.onclick = () => handleAuthButton();
+  }
 }
 
 function handleAuthButton() {
@@ -1410,6 +1476,131 @@ function showToast(msg) {
   setTimeout(()=>t.classList.remove('show'), 2600);
 }
 
+// ═══════════════ ADMIN PROFILE & APPROVAL ═══════════════
+let currentProfile = null;
+
+async function upsertAdminProfile() {
+  if (!LIVE || !currentUser) return null;
+  // upsert own profile - status defaults to 'pending' unless already set
+  const { data, error } = await sb
+    .from('admin_profiles')
+    .upsert({
+      id: currentUser.id,
+      email: currentUser.email,
+      last_seen: new Date().toISOString()
+    }, { onConflict: 'id', ignoreDuplicates: false })
+    .select()
+    .single();
+  if (error && error.code !== '23505') {
+    // profile may already exist, just fetch it
+    const { data: existing } = await sb
+      .from('admin_profiles')
+      .select('*')
+      .eq('id', currentUser.id)
+      .single();
+    return existing;
+  }
+  return data;
+}
+
+async function getMyProfile() {
+  if (!LIVE || !currentUser) return { status: 'approved', is_super_admin: false };
+  const { data } = await sb
+    .from('admin_profiles')
+    .select('*')
+    .eq('id', currentUser.id)
+    .single();
+  return data;
+}
+
+async function checkAdminStatus() {
+  if (!LIVE) return 'approved';
+  if (!currentUser) return 'signedout';
+  await upsertAdminProfile();
+  const profile = await getMyProfile();
+  currentProfile = profile;
+  return profile ? profile.status : 'pending';
+}
+
+// ── SUPER ADMIN DASHBOARD ──
+async function openSuperAdmin() {
+  showScreen('screen-superadmin');
+  document.getElementById('superadmin-content').innerHTML = '<div class="spinner"></div>';
+  
+  // fetch all profiles
+  const { data: profiles } = await sb
+    .from('admin_profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  // fetch platform stats
+  const { data: buys } = await sb.from('buys').select('id, type, status, archived, owner');
+  const { data: orders } = await sb.from('orders').select('id, paid');
+  const { data: claims } = await sb.from('claims').select('id, paid');
+
+  const totalBuys = buys ? buys.length : 0;
+  const activeBuys = buys ? buys.filter(b => !b.archived && b.status === 'open').length : 0;
+  const totalOrders = (orders ? orders.length : 0) + (claims ? claims.length : 0);
+  const totalPaid = (orders ? orders.filter(o => o.paid).length : 0) + (claims ? claims.filter(c => c.paid).length : 0);
+  const pending = profiles ? profiles.filter(p => p.status === 'pending').length : 0;
+
+  const profilesHTML = profiles && profiles.length ? profiles.map(p => `
+    <div class="admin-card">
+      <div class="admin-card-header">
+        <div>
+          <div class="admin-name">${esc(p.display_name || p.email.split('@')[0])}</div>
+          <div class="admin-email">${esc(p.email)}</div>
+          <div class="admin-meta">Joined ${fmtDate(p.created_at)}${p.last_seen ? ' · Last seen ' + fmtDate(p.last_seen) : ''}${p.is_super_admin ? ' · ⭐ Super Admin' : ''}</div>
+        </div>
+        <span class="status-pill status-${p.status}">${p.status}</span>
+      </div>
+      ${!p.is_super_admin ? `
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${p.status !== 'approved' ? `<button class="btn btn-sm btn-primary" style="font-size:11px" onclick="updateAdminStatus('${p.id}','approved')">✓ Approve</button>` : ''}
+        ${p.status !== 'blocked' ? `<button class="btn btn-sm" style="font-size:11px;background:#FDEDEC;color:var(--danger)" onclick="updateAdminStatus('${p.id}','blocked')">Block</button>` : ''}
+        ${p.status !== 'pending' ? `<button class="btn btn-sm" style="font-size:11px;background:var(--soft);color:var(--mid)" onclick="updateAdminStatus('${p.id}','pending')">Set Pending</button>` : ''}
+      </div>` : ''}
+    </div>`).join('') 
+  : '<p class="fs-13 text-mid">No admins have signed up yet.</p>';
+
+  document.getElementById('superadmin-content').innerHTML = `
+    <div class="hero" style="padding-top:20px">
+      <h2>Platform Overview</h2>
+      <p>All activity across MyShare</p>
+    </div>
+    
+    ${pending > 0 ? `<div style="margin:16px 20px 0;background:#FEF3DC;border-radius:12px;padding:14px 16px;font-size:13px;font-weight:600;color:#8B6200">⏳ ${pending} admin${pending>1?'s':''} waiting for approval</div>` : ''}
+
+    <div style="display:flex;gap:10px;margin:16px 20px 0">
+      <div class="platform-stat"><div class="platform-stat-val">${totalBuys}</div><div class="platform-stat-lbl">Total Buys</div></div>
+      <div class="platform-stat"><div class="platform-stat-val">${activeBuys}</div><div class="platform-stat-lbl">Active</div></div>
+      <div class="platform-stat"><div class="platform-stat-val">${totalOrders}</div><div class="platform-stat-lbl">Orders</div></div>
+    </div>
+    <div style="display:flex;gap:10px;margin:10px 20px 0">
+      <div class="platform-stat"><div class="platform-stat-val">${profiles ? profiles.length : 0}</div><div class="platform-stat-lbl">Admins</div></div>
+      <div class="platform-stat"><div class="platform-stat-val">${profiles ? profiles.filter(p=>p.status==='approved').length : 0}</div><div class="platform-stat-lbl">Approved</div></div>
+      <div class="platform-stat"><div class="platform-stat-val">${totalPaid}</div><div class="platform-stat-lbl">Paid</div></div>
+    </div>
+
+    <div class="body-pad" style="padding-top:20px">
+      <div class="section-label">All Admins</div>
+      ${profilesHTML}
+    </div>`;
+}
+
+async function updateAdminStatus(adminId, newStatus) {
+  const { error } = await sb
+    .from('admin_profiles')
+    .update({ 
+      status: newStatus,
+      approved_at: newStatus === 'approved' ? new Date().toISOString() : null
+    })
+    .eq('id', adminId);
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast(newStatus === 'approved' ? 'Admin approved ✓' : newStatus === 'blocked' ? 'Admin blocked' : 'Status updated');
+  openSuperAdmin(); // refresh
+}
+
 // ═══════════════ INIT ═══════════════
 
 // ═══════════ PILOT SEED DATA ═══════════
@@ -1651,8 +1842,22 @@ function seedPilotData() {
 (async function init() {
   await initAuth();
   if (!LIVE) seedPilotData();
+  if (LIVE && currentUser) {
+    const status = await checkAdminStatus();
+    updateAuthUI();
+    if (status === 'pending') { showScreen('screen-pending'); return; }
+    if (status === 'blocked') { showScreen('screen-blocked'); return; }
+  }
   await checkJoinLink();
   if (!new URLSearchParams(location.search).get('buy')) renderHome();
+  // Register PWA service worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => console.log('MyShare SW registered'))
+        .catch(e => console.log('SW registration failed:', e));
+    });
+  }
 })();
 </script>
 </body>
