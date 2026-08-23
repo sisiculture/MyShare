@@ -396,8 +396,8 @@
 // ⚙️ CONFIGURATION - PASTE YOUR SUPABASE VALUES HERE
 // Get both from: Supabase → Project Settings → API
 // ═══════════════════════════════════════════════════
-const SUPABASE_URL = 'https://xacfsgmnkvelueqaldqw.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_fZswotmulnP8CfRsAkf6Sw_9yI_iTlP';
+const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL_HERE';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE';
 
 const HANDLING_MARKUP = 1.05; // 5% platform contribution built into transport & share prices
 const APP_URL = location.origin + location.pathname; // clean base URL - never contains tokens or params
@@ -746,6 +746,8 @@ function renderBasketDetail(f) {
       <button class="btn btn-outline" onclick="openEditBuy()">✏️ Edit Run Details</button>
       <div style="height:10px"></div>
       <button class="btn btn-outline" style="border-color:var(--soft);color:var(--mid)" onclick="toggleArchive()">${b.archived ? '↩️ Restore to Active' : '📦 Archive This Run'}</button>
+      <div style="height:10px"></div>
+      <button class="btn btn-outline" style="border-color:var(--gold);color:var(--gold)" onclick="duplicateBuy()">📋 Duplicate as Template</button>
       <div class="divider"></div>
       <div class="section-label">Price List (tap to edit)</div>
       ${f.items.map(it => `<div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--soft);border-radius:10px;padding:10px 14px;margin-bottom:6px">
@@ -834,7 +836,9 @@ function renderShareDetail(f) {
       <div style="height:10px"></div>
       <button class="btn btn-outline" onclick="openEditBuy()">✏️ Edit Buy Details</button>
       <div style="height:10px"></div>
-      <button class="btn btn-outline" style="border-color:var(--soft);color:var(--mid)" onclick="toggleArchive()">${b.archived ? '↩️ Restore to Active' : '📦 Archive This Buy'}</button>` : ''}
+      <button class="btn btn-outline" style="border-color:var(--soft);color:var(--mid)" onclick="toggleArchive()">${b.archived ? '↩️ Restore to Active' : '📦 Archive This Buy'}</button>
+      <div style="height:10px"></div>
+      <button class="btn btn-outline" style="border-color:var(--gold);color:var(--gold)" onclick="duplicateBuy()">📋 Duplicate as Template</button>` : ''}
     </div>`;
 }
 
@@ -1272,6 +1276,50 @@ async function addItemQuick() {
   await refreshCurrentBuy(); renderDetail(); showToast('Item added ✓');
 }
 
+// ═══════════════ DUPLICATE / TEMPLATE ═══════════════
+async function duplicateBuy() {
+  const f = state.currentBuy;
+  const b = f.buy;
+  
+  // build new buy object - copy everything except id/dates/orders
+  const newBuy = {
+    type: b.type,
+    title: b.title + ' (copy)',
+    group_name: b.group_name,
+    admin_name: b.admin_name,
+    currency: b.currency,
+    transport: b.transport,
+    total_cost: b.total_cost,
+    num_shares: b.num_shares,
+    payment: b.payment,
+    notes: b.notes,
+    collection: b.collection,
+    pickup: b.pickup,
+    require_approval: b.require_approval,
+    status: 'open',
+    archived: false,
+    deadline: null  // force admin to set new deadline
+  };
+
+  // copy items for basket runs
+  const newItems = b.type === 'basket' 
+    ? f.items.map(it => ({
+        name: it.name,
+        price: it.price,
+        unit: it.unit,
+        category: it.category || 'General',
+        threshold: it.threshold,
+        sort: it.sort
+      }))
+    : [];
+
+  const newId = await dbCreateBuy(newBuy, newItems);
+  if (!newId) return;
+
+  showToast('Copy created - update the deadline and share!');
+  await openBuy(newId);
+}
+
 // ═══════════════ RATES ═══════════════
 const PROVIDERS = [
   { name:'WorldRemit', logo:'🌍', rateBase:2015, fee:1.99, speed:'Minutes', color:'#E8621A', url:'https://www.worldremit.com/en?utm_source=myshare', tag:'Best rate' },
@@ -1337,8 +1385,246 @@ function showToast(msg) {
 }
 
 // ═══════════════ INIT ═══════════════
+
+// ═══════════ PILOT SEED DATA ═══════════
+// Pre-built Aberdeen and Inverness runs - visible in demo mode only
+// In LIVE mode these appear only if you create real buys
+function seedPilotData() {
+  const d = demoLoad();
+  if (d.buys.find(b => b.id === 'aberdeen_aug')) return; // already seeded
+  
+  const aberdeenBuy = {
+    id: 'aberdeen_aug',
+    type: 'basket',
+    title: 'Aberdeen Nigerian Food Run - August',
+    group_name: 'Aberdeen Nigerian Food Run - August',
+    admin_name: 'Nelly',
+    deadline: '2026-09-20',
+    pickup: 'Sat 20 Sep - location TBC',
+    currency: '£',
+    transport: 150,
+    payment: 'DM admin for account details',
+    notes: 'Delivery charges: £0-£250 = £20, £251-£400 = £30, £401-£600 = £50. If item not on list, message admin - they may source it.',
+    require_approval: false,
+    status: 'open',
+    archived: false,
+    created_at: new Date().toISOString()
+  };
+  
+  const invernesssBuy = {
+    id: 'inverness_aug',
+    type: 'basket', 
+    title: 'Inverness Bulk Food Buying - August',
+    group_name: 'Inverness Bulk Food Buying - August',
+    admin_name: 'Kenanns',
+    deadline: '2026-09-15',
+    pickup: 'Sat 20 Sep - address shared closer to date',
+    currency: '£',
+    transport: 200,
+    payment: 'DM Kenanns for account details',
+    notes: 'Deadline 12th August. Pickup 16th. If item not on list let admin know.',
+    require_approval: false,
+    status: 'open',
+    archived: false,
+    created_at: new Date().toISOString()
+  };
+
+  d.buys.push(aberdeenBuy);
+  d.buys.push(invernesssBuy);
+
+  const aberdeenItems = [{id:"s0",name:"Box of Mid Wing Turkey (Large)",price:43,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:0,threshold:null},
+{id:"s1",name:"Box of Mid Wing Turkey (Small)",price:40,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:1,threshold:null},
+{id:"s2",name:"Box of Turkey Drumsticks",price:31,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:2,threshold:null},
+{id:"s3",name:"5kg Box of Smoked Turkey",price:26,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:3,threshold:null},
+{id:"s4",name:"Box of Jumbo Hard Chicken",price:25,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:4,threshold:null},
+{id:"s5",name:"Box of Hard Chicken",price:20,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:5,threshold:null},
+{id:"s6",name:"10-12kg Box Whole Chicken",price:35,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:6,threshold:null},
+{id:"s7",name:"Box of Hard Chicken Wings",price:23,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:7,threshold:null},
+{id:"s8",name:"Chicken Gizzard (1kg)",price:3.99,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:8,threshold:null},
+{id:"s9",name:"Chicken Feet (1kg)",price:2,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:9,threshold:null},
+{id:"s10",name:"5kg Box of Beef",price:44,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:10,threshold:null},
+{id:"s11",name:"5kg Shin Beef",price:43,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:11,threshold:null},
+{id:"s12",name:"Box of Beef Honeycomb (Tripe)",price:45,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:12,threshold:null},
+{id:"s13",name:"Cow Tail (1kg)",price:10,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:13,threshold:null},
+{id:"s14",name:"Cow Foot (1kg)",price:2.6,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:14,threshold:null},
+{id:"s15",name:"White Pomo (1kg)",price:3,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:15,threshold:null},
+{id:"s16",name:"Abodi (1kg)",price:3.99,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:16,threshold:null},
+{id:"s17",name:"Liver (1kg)",price:3,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:17,threshold:null},
+{id:"s18",name:"Kidney (1kg)",price:4,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:18,threshold:null},
+{id:"s19",name:"Roundabout (500g)",price:5.99,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:19,threshold:null},
+{id:"s20",name:"Goat Meat with Skin",price:16,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:20,threshold:null},
+{id:"s21",name:"Goat Meat without Skin",price:7,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:21,threshold:null},
+{id:"s22",name:"Saki (1kg)",price:3.99,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:22,threshold:null},
+{id:"s23",name:"Fuku/Lung (1kg)",price:3,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:23,threshold:null},
+{id:"s24",name:"Box of Croaker Fish",price:32,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:24,threshold:null},
+{id:"s25",name:"Box of Tilapia",price:16.99,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:25,threshold:null},
+{id:"s26",name:"Box of Catfish",price:18.99,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:26,threshold:null},
+{id:"s27",name:"10kg Box of Titus Fish",price:48,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:27,threshold:null},
+{id:"s28",name:"Box of Panga Fish",price:28,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:28,threshold:null},
+{id:"s29",name:"Box of Horse Mackerel",price:28,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:29,threshold:null},
+{id:"s30",name:"Box of Hake Fish",price:43,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:30,threshold:null},
+{id:"s31",name:"5kg Box of Boneless Fish",price:33,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:31,threshold:null},
+{id:"s32",name:"Jumbo Prawns",price:7.99,unit:"pack",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:32,threshold:null},
+{id:"s33",name:"Packed Assorted Fish",price:4.99,unit:"pack",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:33,threshold:null},
+{id:"s34",name:"First Grade Ijebu Garri (20kg)",price:20,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:34,threshold:null},
+{id:"s35",name:"First Grade Ijebu Garri (10kg)",price:10,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:35,threshold:null},
+{id:"s36",name:"Delta Yellow Garri (10kg)",price:14,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:36,threshold:null},
+{id:"s37",name:"Stone-Free Ofada Rice",price:7.5,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:37,threshold:null},
+{id:"s38",name:"Golden Sella Rice (20kg)",price:38,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:38,threshold:null},
+{id:"s39",name:"Tropical Sella Rice (20kg)",price:38,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:39,threshold:null},
+{id:"s40",name:"Laquila Rice (10kg)",price:22,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:40,threshold:null},
+{id:"s41",name:"Tida Easy Cook Rice (10kg)",price:14.99,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:41,threshold:null},
+{id:"s42",name:"Tolly Boy Rice (20kg)",price:30,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:42,threshold:null},
+{id:"s43",name:"20kg Bag of Beans",price:50,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:43,threshold:null},
+{id:"s44",name:"Semovita (2kg)",price:3.99,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:44,threshold:null},
+{id:"s45",name:"Semovita (5kg)",price:8.99,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:45,threshold:null},
+{id:"s46",name:"Olu Olu Poundo (4kg)",price:15.99,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:46,threshold:null},
+{id:"s47",name:"Olu Olu Poundo (8kg)",price:27.99,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:47,threshold:null},
+{id:"s48",name:"Elubo Dudu (2kg)",price:7.5,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:48,threshold:null},
+{id:"s49",name:"Semolina (5kg)",price:8.99,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:49,threshold:null},
+{id:"s50",name:"Box of Golden Morn",price:24,unit:"box",category:"\ud83e\udd63 Breakfast & Cereals",sort:50,threshold:null},
+{id:"s51",name:"Milo Tin",price:5.5,unit:"tin",category:"\ud83e\udd63 Breakfast & Cereals",sort:51,threshold:null},
+{id:"s52",name:"Milo Refill (400g)",price:4.5,unit:"pack",category:"\ud83e\udd63 Breakfast & Cereals",sort:52,threshold:null},
+{id:"s53",name:"Milo Refill (800g)",price:8.5,unit:"pack",category:"\ud83e\udd63 Breakfast & Cereals",sort:53,threshold:null},
+{id:"s54",name:"Peak Milk Refill (Large)",price:9.99,unit:"pack",category:"\ud83e\udd63 Breakfast & Cereals",sort:54,threshold:null},
+{id:"s55",name:"Checker Custard (Large)",price:8,unit:"pack",category:"\ud83e\udd63 Breakfast & Cereals",sort:55,threshold:null},
+{id:"s56",name:"Lady B Custard (Large)",price:5,unit:"pack",category:"\ud83e\udd63 Breakfast & Cereals",sort:56,threshold:null},
+{id:"s57",name:"Checker Pap",price:4,unit:"pack",category:"\ud83e\udd63 Breakfast & Cereals",sort:57,threshold:null},
+{id:"s58",name:"Bournvita (Large)",price:8.99,unit:"pack",category:"\ud83e\udd63 Breakfast & Cereals",sort:58,threshold:null},
+{id:"s59",name:"Cerelac",price:8.5,unit:"pack",category:"\ud83e\udd63 Breakfast & Cereals",sort:59,threshold:null},
+{id:"s60",name:"Box Olu Olu Chips",price:18.99,unit:"box",category:"\ud83c\udf5f Snacks",sort:60,threshold:null},
+{id:"s61",name:"Box of Cream Crackers",price:10,unit:"box",category:"\ud83c\udf5f Snacks",sort:61,threshold:null},
+{id:"s62",name:"Box of Beloxi Biscuits",price:10,unit:"box",category:"\ud83c\udf5f Snacks",sort:62,threshold:null},
+{id:"s63",name:"Peanuts",price:3.99,unit:"pack",category:"\ud83c\udf5f Snacks",sort:63,threshold:null},
+{id:"s64",name:"Blended Egusi (1kg)",price:10,unit:"kg",category:"\ud83c\udf36\ufe0f Spices & Soup",sort:64,threshold:null},
+{id:"s65",name:"Blended Crayfish (1kg)",price:28,unit:"kg",category:"\ud83c\udf36\ufe0f Spices & Soup",sort:65,threshold:null},
+{id:"s66",name:"Ogbono (500g)",price:15,unit:"pack",category:"\ud83c\udf36\ufe0f Spices & Soup",sort:66,threshold:null},
+{id:"s67",name:"Knorr Beef",price:2,unit:"pack",category:"\ud83c\udf36\ufe0f Spices & Soup",sort:67,threshold:null},
+{id:"s68",name:"Knorr Chicken",price:2.8,unit:"pack",category:"\ud83c\udf36\ufe0f Spices & Soup",sort:68,threshold:null},
+{id:"s69",name:"Maggi Star",price:2,unit:"pack",category:"\ud83c\udf36\ufe0f Spices & Soup",sort:69,threshold:null},
+{id:"s70",name:"Benny Pack",price:10,unit:"pack",category:"\ud83c\udf36\ufe0f Spices & Soup",sort:70,threshold:null},
+{id:"s71",name:"Malta Guinness (crate)",price:14,unit:"crate",category:"\ud83e\udd64 Drinks",sort:71,threshold:null},
+{id:"s72",name:"Amstel Malta (crate)",price:14,unit:"crate",category:"\ud83e\udd64 Drinks",sort:72,threshold:null},
+{id:"s73",name:"Fayrouz (crate)",price:15,unit:"crate",category:"\ud83e\udd64 Drinks",sort:73,threshold:null},
+{id:"s74",name:"Indomie Chicken",price:9.99,unit:"box",category:"\ud83e\udd64 Drinks",sort:74,threshold:null},
+{id:"s75",name:"Indomie Onion",price:10.5,unit:"box",category:"\ud83e\udd64 Drinks",sort:75,threshold:null},
+{id:"s76",name:"Tomatoes",price:11,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:76,threshold:null},
+{id:"s77",name:"Round Bell Peppers",price:12,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:77,threshold:null},
+{id:"s78",name:"Long Bell Peppers",price:12,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:78,threshold:null},
+{id:"s79",name:"Hot Pepper (2kg)",price:18,unit:"pack",category:"\ud83e\udd6c Fresh Produce",sort:79,threshold:null},
+{id:"s80",name:"Okro",price:20,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:80,threshold:null},
+{id:"s81",name:"Plantain",price:43,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:81,threshold:null},
+{id:"s82",name:"Green Plantain",price:30.5,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:82,threshold:null},
+{id:"s83",name:"Yam",price:67,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:83,threshold:null},
+{id:"s84",name:"Sweet Potato",price:31,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:84,threshold:null}];
+  const invernesssItems = [{id:"s0",name:"Box of Titus Fish",price:93,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:0,threshold:null},
+{id:"s1",name:"Box of Croaker",price:28,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:1,threshold:null},
+{id:"s2",name:"Box of Tilapia",price:12.5,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:2,threshold:null},
+{id:"s3",name:"Cat Fish Box",price:17,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:3,threshold:null},
+{id:"s4",name:"Pangasius Fish Box",price:29,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:4,threshold:null},
+{id:"s5",name:"Hake Fish Box",price:41,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:5,threshold:null},
+{id:"s6",name:"Uncut Hake Fish Box",price:39,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:6,threshold:null},
+{id:"s7",name:"5kg Box of Boneless Fish",price:33,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:7,threshold:null},
+{id:"s8",name:"20kg Kote/Horse Mackerel Box",price:48,unit:"box",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:8,threshold:null},
+{id:"s9",name:"Crab",price:6,unit:"pack",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:9,threshold:null},
+{id:"s10",name:"Packed Assorted Fish",price:4.99,unit:"pack",category:"\ud83d\udc1f Frozen Fish & Seafood",sort:10,threshold:null},
+{id:"s11",name:"Hard Box of Chicken",price:19,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:11,threshold:null},
+{id:"s12",name:"10kg Box Soft Chicken",price:19,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:12,threshold:null},
+{id:"s13",name:"Chicken Uncut",price:19,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:13,threshold:null},
+{id:"s14",name:"Orobo Chicken",price:20,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:14,threshold:null},
+{id:"s15",name:"Pluveral Box Whole Chicken",price:36,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:15,threshold:null},
+{id:"s16",name:"Chicken Gizzard (1kg)",price:2.99,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:16,threshold:null},
+{id:"s17",name:"Chicken Gizzard (5kg)",price:13,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:17,threshold:null},
+{id:"s18",name:"Mid Wing Turkey Box (Large)",price:39,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:18,threshold:null},
+{id:"s19",name:"Mid Wing Turkey Box (Small)",price:38,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:19,threshold:null},
+{id:"s20",name:"Normal Turkey Box",price:38,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:20,threshold:null},
+{id:"s21",name:"Smoked Turkey (5kg)",price:25,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:21,threshold:null},
+{id:"s22",name:"Turkey Gizzard (5kg)",price:20,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:22,threshold:null},
+{id:"s23",name:"Turkey (1kg)",price:4.49,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:23,threshold:null},
+{id:"s24",name:"Shin Beef Box 20kg",price:160,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:24,threshold:null},
+{id:"s25",name:"Shin Beef 5kg",price:41,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:25,threshold:null},
+{id:"s26",name:"Beef 10kg",price:80,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:26,threshold:null},
+{id:"s27",name:"Cow Foot Boneless 5kg",price:30,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:27,threshold:null},
+{id:"s28",name:"Saki 5kg",price:15,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:28,threshold:null},
+{id:"s29",name:"Ponmo 5kg",price:13,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:29,threshold:null},
+{id:"s30",name:"10kg Ponmo Box",price:25,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:30,threshold:null},
+{id:"s31",name:"Liver (1kg)",price:3,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:31,threshold:null},
+{id:"s32",name:"Liver (5kg)",price:13,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:32,threshold:null},
+{id:"s33",name:"Abodi (5kg)",price:12,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:33,threshold:null},
+{id:"s34",name:"Kidney (1kg)",price:3,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:34,threshold:null},
+{id:"s35",name:"Kidney (5kg)",price:13,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:35,threshold:null},
+{id:"s36",name:"Heart (5kg)",price:13,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:36,threshold:null},
+{id:"s37",name:"10kg Honeycomb Shaki",price:57,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:37,threshold:null},
+{id:"s38",name:"Assorted Pepper Soup 5kg",price:20,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:38,threshold:null},
+{id:"s39",name:"Assorted (1kg)",price:4,unit:"kg",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:39,threshold:null},
+{id:"s40",name:"Goat Meat (5kg)",price:36,unit:"pack",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:40,threshold:null},
+{id:"s41",name:"Goat Meat Head",price:4.99,unit:"each",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:41,threshold:null},
+{id:"s42",name:"Beef Ear Box",price:25,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:42,threshold:null},
+{id:"s43",name:"10kg Snout",price:25,unit:"box",category:"\ud83e\udd69 Frozen Meat & Poultry",sort:43,threshold:null},
+{id:"s44",name:"Ijebu Garri 20kg",price:25,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:44,threshold:null},
+{id:"s45",name:"Ijebu Garri 10kg",price:14,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:45,threshold:null},
+{id:"s46",name:"Yellow Garri 10kg",price:13,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:46,threshold:null},
+{id:"s47",name:"Yellow Garri 20kg",price:25,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:47,threshold:null},
+{id:"s48",name:"Peacock Rice 10kg",price:14,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:48,threshold:null},
+{id:"s49",name:"Tolly Rice 10kg",price:15,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:49,threshold:null},
+{id:"s50",name:"Asli Rice 10kg",price:19,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:50,threshold:null},
+{id:"s51",name:"Laquila Rice 10kg",price:22,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:51,threshold:null},
+{id:"s52",name:"Ofada Rice 5kg",price:11,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:52,threshold:null},
+{id:"s53",name:"Olu Olu 8kg",price:26,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:53,threshold:null},
+{id:"s54",name:"Olu Olu 4kg",price:15,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:54,threshold:null},
+{id:"s55",name:"Semo 5kg",price:9,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:55,threshold:null},
+{id:"s56",name:"Semo 10kg",price:18,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:56,threshold:null},
+{id:"s57",name:"Elubo 10kg",price:23,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:57,threshold:null},
+{id:"s58",name:"Elubo 5kg",price:13,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:58,threshold:null},
+{id:"s59",name:"Egusi Unblended 5kg",price:40,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:59,threshold:null},
+{id:"s60",name:"Egusi 1kg",price:9,unit:"kg",category:"\ud83c\udf3e Grains & Swallow",sort:60,threshold:null},
+{id:"s61",name:"Blended Egusi 5kg",price:40,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:61,threshold:null},
+{id:"s62",name:"Crayfish 1kg",price:30,unit:"kg",category:"\ud83c\udf3e Grains & Swallow",sort:62,threshold:null},
+{id:"s63",name:"Honey Beans 4kg",price:11,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:63,threshold:null},
+{id:"s64",name:"White Beans 4kg",price:8,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:64,threshold:null},
+{id:"s65",name:"Sweet Beans 20kg",price:40,unit:"bag",category:"\ud83c\udf3e Grains & Swallow",sort:65,threshold:null},
+{id:"s66",name:"Ground Rice 1kg",price:3,unit:"kg",category:"\ud83c\udf3e Grains & Swallow",sort:66,threshold:null},
+{id:"s67",name:"Oatmeal 4kg",price:7.99,unit:"pack",category:"\ud83c\udf3e Grains & Swallow",sort:67,threshold:null},
+{id:"s68",name:"Banga Palm Oil 4L",price:14,unit:"bottle",category:"\ud83c\udf36\ufe0f Spices & Cooking",sort:68,threshold:null},
+{id:"s69",name:"Banga Palm Oil 2L",price:8,unit:"bottle",category:"\ud83c\udf36\ufe0f Spices & Cooking",sort:69,threshold:null},
+{id:"s70",name:"L&J Palm Oil 5L",price:14,unit:"bottle",category:"\ud83c\udf36\ufe0f Spices & Cooking",sort:70,threshold:null},
+{id:"s71",name:"L&J Palm Oil 2L",price:8,unit:"bottle",category:"\ud83c\udf36\ufe0f Spices & Cooking",sort:71,threshold:null},
+{id:"s72",name:"Knorr Cube",price:2,unit:"pack",category:"\ud83c\udf36\ufe0f Spices & Cooking",sort:72,threshold:null},
+{id:"s73",name:"Maggi Star",price:1.5,unit:"pack",category:"\ud83c\udf36\ufe0f Spices & Cooking",sort:73,threshold:null},
+{id:"s74",name:"Lady B Custard",price:6,unit:"pack",category:"\ud83e\udd63 Breakfast & Drinks",sort:74,threshold:null},
+{id:"s75",name:"Milo 400g",price:4.99,unit:"pack",category:"\ud83e\udd63 Breakfast & Drinks",sort:75,threshold:null},
+{id:"s76",name:"Milo 1.4kg",price:14.99,unit:"pack",category:"\ud83e\udd63 Breakfast & Drinks",sort:76,threshold:null},
+{id:"s77",name:"Indomie Chicken",price:8,unit:"box",category:"\ud83e\udd63 Breakfast & Drinks",sort:77,threshold:null},
+{id:"s78",name:"Indomie Onion",price:9,unit:"box",category:"\ud83e\udd63 Breakfast & Drinks",sort:78,threshold:null},
+{id:"s79",name:"Crate Maltina Can",price:12,unit:"crate",category:"\ud83e\udd63 Breakfast & Drinks",sort:79,threshold:null},
+{id:"s80",name:"Crate Amstel Malta",price:12,unit:"crate",category:"\ud83e\udd63 Breakfast & Drinks",sort:80,threshold:null},
+{id:"s81",name:"Crate Malta Guinness Can",price:12,unit:"crate",category:"\ud83e\udd63 Breakfast & Drinks",sort:81,threshold:null},
+{id:"s82",name:"Crate Teems",price:9,unit:"crate",category:"\ud83e\udd63 Breakfast & Drinks",sort:82,threshold:null},
+{id:"s83",name:"Crate Lacasera",price:9,unit:"crate",category:"\ud83e\udd63 Breakfast & Drinks",sort:83,threshold:null},
+{id:"s84",name:"Crate Fayrouz Can",price:12,unit:"crate",category:"\ud83e\udd63 Breakfast & Drinks",sort:84,threshold:null},
+{id:"s85",name:"Chips Olu Olu",price:17,unit:"box",category:"\ud83c\udf5f Snacks",sort:85,threshold:null},
+{id:"s86",name:"Chips Ades",price:4.99,unit:"pack",category:"\ud83c\udf5f Snacks",sort:86,threshold:null},
+{id:"s87",name:"Kilichi",price:4,unit:"pack",category:"\ud83c\udf5f Snacks",sort:87,threshold:null},
+{id:"s88",name:"Box of Plantain",price:45,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:88,threshold:null},
+{id:"s89",name:"Green Plantain",price:30.5,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:89,threshold:null},
+{id:"s90",name:"Yam",price:67,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:90,threshold:null},
+{id:"s91",name:"Sweet Potato",price:32,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:91,threshold:null},
+{id:"s92",name:"Tomatoes",price:10,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:92,threshold:null},
+{id:"s93",name:"Long Tatase",price:12,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:93,threshold:null},
+{id:"s94",name:"Habanero 4kg",price:38,unit:"pack",category:"\ud83e\udd6c Fresh Produce",sort:94,threshold:null},
+{id:"s95",name:"Habanero 2kg",price:19,unit:"pack",category:"\ud83e\udd6c Fresh Produce",sort:95,threshold:null},
+{id:"s96",name:"Shombo",price:20,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:96,threshold:null},
+{id:"s97",name:"Okra",price:24,unit:"box",category:"\ud83e\udd6c Fresh Produce",sort:97,threshold:null}];
+
+  aberdeenItems.forEach(it => d.items.push({...it, id:'a_'+it.id, buy_id:'aberdeen_aug'}));
+  invernesssItems.forEach(it => d.items.push({...it, id:'i_'+it.id, buy_id:'inverness_aug'}));
+
+  demoSave(d);
+}
+
 (async function init() {
   await initAuth();
+  if (!LIVE) seedPilotData();
   await checkJoinLink();
   if (!new URLSearchParams(location.search).get('buy')) renderHome();
 })();
