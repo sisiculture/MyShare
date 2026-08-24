@@ -586,9 +586,9 @@ async function initAuth() {
     currentUser = session?.user || null;
     updateAuthUI();
     if (currentUser) {
-      const status = await checkAdminStatus();
-      if (status === 'pending') { showScreen('screen-pending'); return; }
-      if (status === 'blocked') { showScreen('screen-blocked'); return; }
+      await upsertAdminProfile();
+      currentProfile = await getMyProfile();
+      updateAuthUI();
       if (state.pendingAction) { const a = state.pendingAction; state.pendingAction = null; a(); }
     }
     if (document.getElementById('screen-home').classList.contains('active')) renderHome();
@@ -1843,10 +1843,9 @@ function seedPilotData() {
   await initAuth();
   if (!LIVE) seedPilotData();
   if (LIVE && currentUser) {
-    const status = await checkAdminStatus();
+    await upsertAdminProfile();
+    currentProfile = await getMyProfile();
     updateAuthUI();
-    if (status === 'pending') { showScreen('screen-pending'); return; }
-    if (status === 'blocked') { showScreen('screen-blocked'); return; }
   }
   await checkJoinLink();
   if (!new URLSearchParams(location.search).get('buy')) renderHome();
